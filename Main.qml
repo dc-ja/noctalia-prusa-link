@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import qs.Commons
 
 Item {
     id: root
