@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import qs.Commons
+import qs.Modules.Bar.Extras
 import qs.Services.UI
 import qs.Widgets
 
@@ -20,33 +21,31 @@ Item {
     readonly property string screenName: screen ? screen.name : ""
     readonly property string barPosition: Settings.getBarPositionForScreen(screenName)
     readonly property bool isBarVertical: barPosition === "left" || barPosition === "right"
-    readonly property real capsuleHeight: Style.getCapsuleHeightForScreen(screenName)
-    readonly property real barFontSize: Style.getBarFontSizeForScreen(screenName)
 
-    readonly property string state: mainInstance?.printerState ?? "OFFLINE"
+    readonly property string printerState: mainInstance?.printerState ?? "OFFLINE"
     readonly property real progress: mainInstance?.progress ?? 0
     readonly property bool connected: mainInstance?.connected ?? false
 
     readonly property string displayText: {
         if (!connected)
-            return "\u2014";
-        if (state === "PRINTING")
+            return "";
+        if (printerState === "PRINTING")
             return Math.round(progress) + "%";
-        return state === "IDLE" ? "IDLE" : state;
+        return printerState === "IDLE" ? "IDLE" : printerState;
     }
 
     readonly property string stateIcon: {
-        if (state === "PRINTING")
+        if (printerState === "PRINTING")
             return "printer";
-        if (state === "IDLE")
+        if (printerState === "IDLE")
             return "printer";
         return "printer-off";
     }
 
     readonly property color stateColor: {
-        if (state === "PRINTING")
+        if (printerState === "PRINTING")
             return Color.mPrimary;
-        if (state === "IDLE")
+        if (printerState === "IDLE")
             return Color.mOnSurfaceVariant;
         return Color.mError;
     }
@@ -57,9 +56,9 @@ Item {
             return [["Prusa Link", "Disconnected"]];
 
         const rows = [];
-        rows.push(["Printer", root.state]);
+        rows.push(["Printer", root.printerState]);
 
-        if (root.state === "PRINTING") {
+        if (root.printerState === "PRINTING") {
             rows.push(["Progress", Math.round(root.progress) + "%"]);
             rows.push(["Time remaining", mainInstance?.formatTime(mainInstance?.timeRemaining) ?? "--:--"]);
             rows.push(["Print time", mainInstance?.formatTime(mainInstance?.timePrinting) ?? "--:--"]);
@@ -77,12 +76,8 @@ Item {
         return rows;
     }
 
-    readonly property real contentWidth: isBarVertical ? capsuleHeight : content.implicitWidth + Style.marginM * 2
-    readonly property real contentHeight: isBarVertical ? content.implicitHeight + Style.marginM * 2 : capsuleHeight
-
-    anchors.centerIn: parent
-    implicitWidth: contentWidth
-    implicitHeight: contentHeight
+    implicitWidth: pill.width
+    implicitHeight: pill.height
 
     NPopupContextMenu {
         id: contextMenu
@@ -105,94 +100,27 @@ Item {
         }
     }
 
-    Rectangle {
-        id: visualCapsule
-        x: Style.pixelAlignCenter(parent.width, width)
-        y: Style.pixelAlignCenter(parent.height, height)
-        width: root.contentWidth
-        height: root.contentHeight
-        radius: Style.radiusL
-        color: mouseArea.containsMouse ? Color.mHover : Style.capsuleColor
-        border.color: Style.capsuleBorderColor
-        border.width: Style.capsuleBorderWidth
+    BarPill {
+        id: pill
 
-        Item {
-            id: content
-            anchors.centerIn: parent
-            implicitWidth: rowLayout.visible ? rowLayout.implicitWidth : colLayout.implicitWidth
-            implicitHeight: rowLayout.visible ? rowLayout.implicitHeight : colLayout.implicitHeight
+        screen: root.screen
+        oppositeDirection: BarService.getPillDirection(root)
+        customTextIconColor: root.stateColor
+        icon: root.stateIcon
+        text: root.displayText
+        tooltipText: root.buildTooltipContent()
+        autoHide: false
+        forceOpen: !root.isBarVertical && root.printerState === "PRINTING"
+        forceClose: root.isBarVertical || root.displayText === ""
 
-            RowLayout {
-                id: rowLayout
-                visible: !root.isBarVertical
-                spacing: Style.marginS
-
-                NIcon {
-                    icon: root.stateIcon
-                    pointSize: root.barFontSize
-                    applyUiScale: false
-                    color: root.stateColor
-                    Layout.alignment: Qt.AlignVCenter
-                }
-
-                NText {
-                    text: root.displayText
-                    pointSize: root.barFontSize
-                    applyUiScale: false
-                    font.weight: Style.fontWeightSemiBold
-                    color: root.stateColor
-                    Layout.alignment: Qt.AlignVCenter
-                }
-            }
-
-            ColumnLayout {
-                id: colLayout
-                visible: root.isBarVertical
-                spacing: Style.marginXS
-
-                NIcon {
-                    icon: root.stateIcon
-                    pointSize: root.barFontSize
-                    applyUiScale: false
-                    color: root.stateColor
-                    Layout.alignment: Qt.AlignHCenter
-                }
-
-                NText {
-                    text: root.displayText
-                    pointSize: root.barFontSize
-                    applyUiScale: false
-                    font.weight: Style.fontWeightSemiBold
-                    color: root.stateColor
-                    Layout.alignment: Qt.AlignHCenter
-                }
-            }
-        }
-    }
-
-    MouseArea {
-        id: mouseArea
-        anchors.fill: parent
-        hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
-        acceptedButtons: Qt.LeftButton | Qt.RightButton
-
-        onClicked: mouse => {
-            if (mouse.button === Qt.LeftButton) {
-                TooltipService.hide();
-                pluginApi?.togglePanel(root.screen, root);
-            } else if (mouse.button === Qt.RightButton) {
-                TooltipService.hide();
-                PanelService.showContextMenu(contextMenu, root, root.screen);
-            }
-        }
-
-        onEntered: {
-            TooltipService.show(root, root.buildTooltipContent(), BarService.getTooltipDirection(root.screenName));
-        }
-
-        onExited: {
+        onClicked: {
             TooltipService.hide();
+            pluginApi?.togglePanel(root.screen, root);
+        }
+
+        onRightClicked: {
+            TooltipService.hide();
+            PanelService.showContextMenu(contextMenu, pill, root.screen);
         }
     }
 }
