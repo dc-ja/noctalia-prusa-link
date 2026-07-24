@@ -55,6 +55,7 @@ Item {
         root.error = "";
         const xhr = new XMLHttpRequest();
         xhr.open("GET", root.baseUrl + "/api/v1/status", true, root.username, root.password);
+        xhr.timeout = 2000;
 
         xhr.onreadystatechange = function () {
             if (xhr.readyState !== XMLHttpRequest.DONE)
@@ -62,8 +63,10 @@ Item {
             if (xhr.status !== 200) {
                 root.connected = false;
                 root.printerState = "OFFLINE";
-                root.error = "HTTP " + xhr.status;
-                Logger.e("prusa-link", "Status fetch failed (HTTP " + xhr.status + ")");
+                if (xhr.status !== 0) {
+                    root.error = "HTTP " + xhr.status;
+                    Logger.e("prusa-link", "Status fetch failed (HTTP " + xhr.status + ")");
+                }
                 return;
             }
             root.connected = true;
@@ -76,6 +79,7 @@ Item {
                 root.error = "Parse error";
             }
         };
+
         xhr.send();
     }
 
