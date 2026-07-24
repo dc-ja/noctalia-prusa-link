@@ -10,7 +10,9 @@ Item {
     property var pluginSettings: pluginApi?.pluginSettings ?? ({})
 
     readonly property string host: pluginSettings?.host ?? "127.0.0.1"
-    readonly property int port: pluginSettings?.port ?? 9999
+    readonly property int port: pluginSettings?.port ?? 8080
+    readonly property string username: pluginSettings?.username ?? "maker"
+    readonly property string password: pluginSettings?.password ?? ""
     readonly property string baseUrl: "http://" + host + ":" + port
     property int refreshIntervalSec: pluginSettings?.refreshIntervalSec ?? 10
 
@@ -52,7 +54,7 @@ Item {
     function fetchStatus() {
         root.error = "";
         const xhr = new XMLHttpRequest();
-        xhr.open("GET", root.baseUrl + "/status");
+        xhr.open("GET", root.baseUrl + "/api/v1/status", true, root.username, root.password);
 
         xhr.onreadystatechange = function () {
             if (xhr.readyState !== XMLHttpRequest.DONE)

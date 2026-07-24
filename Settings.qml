@@ -94,10 +94,63 @@ ColumnLayout {
                 NSpinBox {
                     from: 1
                     to: 65535
-                    value: editSettings?.port ?? 9999
+                    value: editSettings?.port ?? 8080
                     stepSize: 1
                     onValueChanged: {
                         editSettings.port = value;
+                    }
+                }
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: Style.marginXS
+
+                NText {
+                    text: "Username"
+                    pointSize: Style.fontSizeM
+                    font.weight: Style.fontWeightSemiBold
+                    color: Color.mOnSurface
+                }
+                NText {
+                    text: "PrusaLink username (default: maker)"
+                    pointSize: Style.fontSizeXS
+                    color: Color.mOnSurfaceVariant
+                }
+
+                NTextInput {
+                    Layout.fillWidth: true
+                    placeholderText: "maker"
+                    text: editSettings?.username ?? "maker"
+                    onTextChanged: {
+                        editSettings.username = text;
+                    }
+                }
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: Style.marginXS
+
+                NText {
+                    text: "Password"
+                    pointSize: Style.fontSizeM
+                    font.weight: Style.fontWeightSemiBold
+                    color: Color.mOnSurface
+                }
+                NText {
+                    text: "PrusaLink password for HTTP Digest auth"
+                    pointSize: Style.fontSizeXS
+                    color: Color.mOnSurfaceVariant
+                }
+
+                NTextInput {
+                    Layout.fillWidth: true
+                    placeholderText: "Enter password"
+                    inputItem.echoMode: TextInput.Password
+                    text: editSettings?.password ?? ""
+                    onTextChanged: {
+                        editSettings.password = text;
                     }
                 }
             }
