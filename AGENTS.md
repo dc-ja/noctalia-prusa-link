@@ -1,4 +1,4 @@
-# Prusa Link — Noctalia Shell Plugin
+# PrusaLink — Noctalia Shell Plugin
 
 Bar widget that shows your Prusa printer state and print progress, powered by the PrusaLink API.
 

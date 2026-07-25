@@ -19,7 +19,7 @@ ColumnLayout {
     spacing: Style.marginL
 
     NText {
-        text: "Prusa Link Settings"
+        text: "PrusaLink Settings"
         pointSize: Style.fontSizeXL
         font.weight: Style.fontWeightBold
         color: Color.mOnSurface
@@ -139,7 +139,7 @@ ColumnLayout {
                     color: Color.mOnSurface
                 }
                 NText {
-                    text: "PrusaLink password for HTTP Digest auth"
+                    text: "PrusaLink password"
                     pointSize: Style.fontSizeXS
                     color: Color.mOnSurfaceVariant
                 }

@@ -69,7 +69,7 @@ Item {
     /* ---- tooltip ---- */
     function buildTooltipContent() {
         if (!connected)
-            return [["Prusa Link", "Disconnected"]];
+            return [["PrusaLink", "Disconnected"]];
 
         const stateLabel = {
             "IDLE": "idle",

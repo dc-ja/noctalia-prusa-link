@@ -28,14 +28,14 @@ Item {
             spacing: Style.marginM
 
             NText {
-                text: "Prusa Link"
+                text: "PrusaLink"
                 pointSize: Style.fontSizeXL
                 font.weight: Style.fontWeightBold
                 color: Color.mOnSurface
             }
 
             NText {
-                text: "Click the button below to open the Prusa Link web interface in your browser."
+                text: "Click the button below to open the PrusaLink web interface in your browser."
                 pointSize: Style.fontSizeM
                 color: Color.mOnSurfaceVariant
                 wrapMode: Text.Wrap
