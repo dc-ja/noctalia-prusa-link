@@ -12,48 +12,81 @@ Item {
 
     readonly property var geometryPlaceholder: panelContainer
     readonly property bool allowAttach: true
-    property real contentPreferredWidth: 320 * Style.uiScaleRatio
+    property real contentPreferredWidth: 600 * Style.uiScaleRatio
     property real contentPreferredHeight: 200 * Style.uiScaleRatio
 
     anchors.fill: parent
 
-    Rectangle {
-        id: panelContainer
+    ColumnLayout {
         anchors.fill: parent
-        color: "transparent"
+        anchors.margins: Style.marginL
+        spacing: Style.marginM
 
-        ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: Style.marginL
-            spacing: Style.marginM
+        NBox {
+            Layout.fillWidth: true
+            implicitHeight: headerRow.implicitHeight + Style.margin2M
 
-            NText {
-                text: "PrusaLink"
-                pointSize: Style.fontSizeXL
-                font.weight: Style.fontWeightBold
-                color: Color.mOnSurface
-            }
+            RowLayout {
+                id: headerRow
+                anchors.fill: parent
+                anchors.margins: Style.marginM
 
-            NText {
-                text: "Click the button below to open the PrusaLink web interface in your browser."
-                pointSize: Style.fontSizeM
-                color: Color.mOnSurfaceVariant
-                wrapMode: Text.Wrap
-                Layout.fillWidth: true
-            }
+                NIcon {
+                    icon: "printer"
+                    pointSize: Style.fontSizeXXL
+                    color: Color.mPrimary
+                }
 
-            NButton {
-                text: "Open Web UI"
-                Layout.alignment: Qt.AlignHCenter
-                onClicked: {
-                    const url = mainInstance?.baseUrl ?? "http://127.0.0.1:9999";
-                    Quickshell.execDetached(["xdg-open", url]);
+                NText {
+                    text: `PrusaLink:`
+                    pointSize: Style.fontSizeL
+                    font.weight: Style.fontWeightBold
+                    color: Color.mOnSurface
+                }
+
+                NText {
+                    readonly property string printerName: mainInstance?.infoName || mainInstance?.infoHostname || ""
+                    text: printerName || "Unknown"
+                    pointSize: Style.fontSizeL
+                    color: Color.mOnSurface
+                    Layout.fillWidth: true
+                    elide: Text.ElideRight
+                }
+
+                NIconButton {
+                    icon: "refresh"
+                    tooltipText: "Refresh"
+                    baseSize: Style.baseWidgetSize * 0.8
+                    onClicked: mainInstance?.refresh()
+                }
+
+                NIconButton {
+                    icon: "external-link"
+                    tooltipText: "Open Web UI"
+                    baseSize: Style.baseWidgetSize * 0.8
+                    onClicked: {
+                        const url = mainInstance?.baseUrl ?? "http://127.0.0.1:9999";
+                        Quickshell.execDetached(["xdg-open", url]);
+                    }
+                }
+
+                NIconButton {
+                    icon: "close"
+                    tooltipText: "Close"
+                    baseSize: Style.baseWidgetSize * 0.8
+                    onClicked: {
+                        if (pluginApi) {
+                            pluginApi.withCurrentScreen(function(s) {
+                                pluginApi.closePanel(s);
+                            });
+                        }
+                    }
                 }
             }
+        }
 
-            Item {
-                Layout.fillHeight: true
-            }
+        Item {
+            Layout.fillHeight: true
         }
     }
 }
