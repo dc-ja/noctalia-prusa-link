@@ -26,28 +26,44 @@ Item {
     readonly property real progress: mainInstance?.progress ?? 0
     readonly property bool connected: mainInstance?.connected ?? false
 
+    readonly property bool isErrorState: printerState === "ERROR" || printerState === "ATTENTION"
+
+    readonly property bool alwaysVisible: printerState === "PRINTING" || printerState === "PAUSED" || printerState === "BUSY" || printerState === "FINISHED" || printerState === "STOPPED" || printerState === "ERROR" || printerState === "ATTENTION"
+
     readonly property string displayText: {
-        if (!connected)
-            return "";
         if (printerState === "PRINTING")
             return Math.round(progress) + "%";
-        return printerState === "IDLE" ? "IDLE" : printerState;
+        if (printerState === "PAUSED")
+            return "Paused";
+        if (printerState === "IDLE")
+            return "Idle";
+        if (printerState === "READY")
+            return "Ready";
+        if (printerState === "BUSY")
+            return "Busy";
+        if (printerState === "FINISHED")
+            return "Finished";
+        if (printerState === "STOPPED")
+            return "Stopped";
+        if (printerState === "ERROR")
+            return "Error";
+        if (printerState === "ATTENTION")
+            return "Attention";
+        return "Offline";
     }
 
-    readonly property string stateIcon: {
-        if (printerState === "PRINTING")
-            return "printer";
-        if (printerState === "IDLE")
-            return "printer";
-        return "printer-off";
-    }
+    readonly property string stateIcon: printerState === "OFFLINE" ? "printer-off" : "printer"
 
     readonly property color stateColor: {
         if (printerState === "PRINTING")
             return Color.mPrimary;
-        if (printerState === "IDLE")
-            return Color.mOnSurfaceVariant;
-        return Color.mError;
+        if (isErrorState)
+            return Color.mError;
+        if (printerState === "PAUSED")
+            return Color.mPrimary;
+        if (printerState === "FINISHED")
+            return Color.mPrimary;
+        return Color.mOnSurfaceVariant;
     }
 
     /* ---- tooltip ---- */
@@ -55,10 +71,22 @@ Item {
         if (!connected)
             return [["Prusa Link", "Disconnected"]];
 
-        const rows = [];
-        rows.push(["Printer", root.printerState]);
+        const stateLabel = {
+            "IDLE": "idle",
+            "READY": "ready",
+            "BUSY": "busy",
+            "PRINTING": "printing",
+            "PAUSED": "paused",
+            "FINISHED": "finished",
+            "STOPPED": "stopped",
+            "ERROR": "error",
+            "ATTENTION": "attention"
+        };
 
-        if (root.printerState === "PRINTING") {
+        const rows = [];
+        rows.push(["Printer", stateLabel[root.printerState] ?? "offline"]);
+
+        if (root.printerState === "PRINTING" || root.printerState === "PAUSED") {
             rows.push(["Progress", Math.round(root.progress) + "%"]);
             rows.push(["Time remaining", mainInstance?.formatTime(mainInstance?.timeRemaining) ?? "--:--"]);
             rows.push(["Print time", mainInstance?.formatTime(mainInstance?.timePrinting) ?? "--:--"]);
@@ -110,8 +138,8 @@ Item {
         text: root.displayText
         tooltipText: root.buildTooltipContent()
         autoHide: false
-        forceOpen: !root.isBarVertical && root.printerState === "PRINTING"
-        forceClose: root.isBarVertical || root.displayText === ""
+        forceOpen: !root.isBarVertical && root.alwaysVisible
+        forceClose: root.isBarVertical
 
         onClicked: {
             TooltipService.hide();
