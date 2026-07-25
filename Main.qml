@@ -17,6 +17,20 @@ Item {
     readonly property string baseUrl: protocol + "://" + host + ":" + port
     property int refreshIntervalSec: pluginSettings?.refreshIntervalSec ?? 10
 
+    /* ---------- printer info ---------- */
+    property bool infoFetched: false
+    property string infoName: ""
+    property string infoHostname: ""
+    property string infoLocation: ""
+    property bool infoMmu: false
+    property bool infoFarmMode: false
+    property real infoNozzleDiameter: 0
+    property int infoMinExtrusionTemp: 0
+    property bool infoSdReady: false
+    property bool infoActiveCamera: false
+    property string infoPort: ""
+    property bool infoNetworkErrorChime: false
+
     /* ---------- printer status properties ---------- */
     property bool ready: false
     property bool connected: false
@@ -67,6 +81,7 @@ Item {
                 return;
             if (xhr.status !== 200) {
                 root.connected = false;
+                root.infoFetched = false;
                 root.printerState = "OFFLINE";
                 if (xhr.status !== 0) {
                     root.error = "HTTP " + xhr.status;
@@ -76,6 +91,9 @@ Item {
             }
             root.connected = true;
             root.ready = true;
+            if (!root.infoFetched) {
+                root.fetchInfo();
+            }
             try {
                 const data = JSON.parse(xhr.responseText);
                 root.updateFromPayload(data);
@@ -113,6 +131,47 @@ Item {
         root.progress = job.progress ?? 0;
         root.timeRemaining = job.time_remaining ?? 0;
         root.timePrinting = job.time_printing ?? 0;
+    }
+
+    function fetchInfo() {
+        if (!root) {
+            return;
+        }
+        const xhr = new XMLHttpRequest();
+        xhr.open("GET", root.baseUrl + "/api/v1/info", true, root.username, root.password);
+        xhr.timeout = 5000;
+
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState !== XMLHttpRequest.DONE)
+                return;
+            if (xhr.status !== 200) {
+                if (xhr.status !== 0) {
+                    Logger.e("prusa-link", "Info fetch failed (HTTP " + xhr.status + ")");
+                }
+                root.infoFetched = true;
+                return;
+            }
+            try {
+                const data = JSON.parse(xhr.responseText);
+                root.infoName = data.name ?? "";
+                root.infoHostname = data.hostname ?? "";
+                root.infoLocation = data.location ?? "";
+                root.infoMmu = data.mmu ?? false;
+                root.infoFarmMode = data.farm_mode ?? false;
+                root.infoNozzleDiameter = data.nozzle_diameter ?? 0;
+                root.infoMinExtrusionTemp = data.min_extrusion_temp ?? 0;
+                root.infoSdReady = data.sd_ready ?? false;
+                root.infoActiveCamera = data.active_camera ?? false;
+                root.infoPort = data.port ?? "";
+                root.infoNetworkErrorChime = data.network_error_chime ?? false;
+                root.infoFetched = true;
+            } catch (e) {
+                Logger.e("prusa-link", "Failed to parse info:", e);
+                root.infoFetched = true;
+            }
+        };
+
+        xhr.send();
     }
 
     function refresh() {

@@ -84,7 +84,10 @@ Item {
         };
 
         const rows = [];
-        rows.push(["Printer", stateLabel[root.printerState] ?? "offline"]);
+        const printerName = mainInstance?.infoName || mainInstance?.infoHostname || "";
+        if (printerName)
+            rows.push(["Printer", printerName]);
+        rows.push(["State", stateLabel[root.printerState] ?? "offline"]);
 
         if (root.printerState === "PRINTING" || root.printerState === "PAUSED") {
             rows.push(["Progress", Math.round(root.progress) + "%"]);
