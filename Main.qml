@@ -57,6 +57,13 @@ Item {
     property int timeRemaining: 0
     property int timePrinting: 0
 
+    /* ---------- job details ---------- */
+    property string jobState: ""
+    property string jobFileName: ""
+    property string jobFileDisplayName: ""
+    property string jobFileIcon: ""
+    property string jobFileThumbnail: ""
+
     Timer {
         interval: root.refreshIntervalSec * 1000
         running: true
@@ -131,6 +138,58 @@ Item {
         root.progress = job.progress ?? 0;
         root.timeRemaining = job.time_remaining ?? 0;
         root.timePrinting = job.time_printing ?? 0;
+
+        if (root.jobId >= 0) {
+            root.fetchJob();
+        } else {
+            root.jobState = "";
+            root.jobFileName = "";
+            root.jobFileDisplayName = "";
+            root.jobFileIcon = "";
+            root.jobFileThumbnail = "";
+        }
+    }
+
+    function fetchJob() {
+        if (!root) {
+            return;
+        }
+        const xhr = new XMLHttpRequest();
+        xhr.open("GET", root.baseUrl + "/api/v1/job", true, root.username, root.password);
+        xhr.timeout = 5000;
+
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState !== XMLHttpRequest.DONE)
+                return;
+            if (xhr.status === 204) {
+                root.jobState = "";
+                root.jobFileName = "";
+                root.jobFileDisplayName = "";
+                root.jobFileIcon = "";
+                root.jobFileThumbnail = "";
+                return;
+            }
+            if (xhr.status !== 200) {
+                if (xhr.status !== 0) {
+                    Logger.e("prusa-link", "Job fetch failed (HTTP " + xhr.status + ")");
+                }
+                return;
+            }
+            try {
+                const data = JSON.parse(xhr.responseText);
+                root.jobState = data.state ?? "";
+                const file = data.file ?? {};
+                root.jobFileName = file.name ?? "";
+                root.jobFileDisplayName = file.display_name ?? "";
+                const refs = file.refs ?? {};
+                root.jobFileIcon = refs.icon ?? "";
+                root.jobFileThumbnail = refs.thumbnail ?? "";
+            } catch (e) {
+                Logger.e("prusa-link", "Failed to parse job:", e);
+            }
+        };
+
+        xhr.send();
     }
 
     function fetchInfo() {
