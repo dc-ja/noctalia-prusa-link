@@ -54,6 +54,34 @@ ColumnLayout {
                 spacing: Style.marginXS
 
                 NText {
+                    text: "Protocol"
+                    pointSize: Style.fontSizeM
+                    font.weight: Style.fontWeightSemiBold
+                    color: Color.mOnSurface
+                }
+                NText {
+                    text: "HTTP or HTTPS"
+                    pointSize: Style.fontSizeXS
+                    color: Color.mOnSurfaceVariant
+                }
+
+                NComboBox {
+                    model: [
+                        {key: "https", name: "HTTPS"},
+                        {key: "http", name: "HTTP"}
+                    ]
+                    currentKey: editSettings?.protocol ?? "https"
+                    onSelected: function(key) {
+                        editSettings.protocol = key;
+                    }
+                }
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: Style.marginXS
+
+                NText {
                     text: "Host"
                     pointSize: Style.fontSizeM
                     font.weight: Style.fontWeightSemiBold

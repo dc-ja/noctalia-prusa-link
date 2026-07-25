@@ -9,11 +9,12 @@ Item {
     property var pluginApi: null
     property var pluginSettings: pluginApi?.pluginSettings ?? ({})
 
+    readonly property string protocol: pluginSettings?.protocol ?? "https"
     readonly property string host: pluginSettings?.host ?? "127.0.0.1"
     readonly property int port: pluginSettings?.port ?? 8080
     readonly property string username: pluginSettings?.username ?? "maker"
     readonly property string password: pluginSettings?.password ?? ""
-    readonly property string baseUrl: "http://" + host + ":" + port
+    readonly property string baseUrl: protocol + "://" + host + ":" + port
     property int refreshIntervalSec: pluginSettings?.refreshIntervalSec ?? 10
 
     /* ---------- printer status properties ---------- */
