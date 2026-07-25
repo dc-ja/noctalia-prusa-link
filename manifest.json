@@ -3,7 +3,7 @@
   "name": "Prusa Link",
   "version": "0.1.0",
   "minNoctaliaVersion": "4.7.7",
-  "author": "cmptr",
+  "author": "dc-ja",
   "license": "MIT",
   "description": "Shows Prusa printer state and print progress in the bar. Click to open the Prusa Link web interface.",
   "tags": [
