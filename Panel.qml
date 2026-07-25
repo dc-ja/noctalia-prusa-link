@@ -65,7 +65,8 @@ Item {
                     tooltipText: "Open Web UI"
                     baseSize: Style.baseWidgetSize * 0.8
                     onClicked: {
-                        const url = mainInstance?.baseUrl ?? "http://127.0.0.1:9999";
+                        const url = mainInstance?.baseUrl ?? "";
+                        if (!url) return;
                         Quickshell.execDetached(["xdg-open", url]);
                     }
                 }
@@ -81,6 +82,79 @@ Item {
                             });
                         }
                     }
+                }
+            }
+        }
+
+        NBox {
+            Layout.fillWidth: true
+            implicitHeight: jobColumn.implicitHeight + Style.margin2L
+
+            ColumnLayout {
+                id: jobColumn
+                anchors.fill: parent
+                anchors.margins: Style.marginL
+                spacing: Style.marginM
+
+                RowLayout {
+                    id: jobLayout
+                    Layout.fillWidth: true
+                    spacing: Style.marginM
+
+                    Rectangle {
+                        id: thumbnailPlaceholder
+                        color: Color.mSurface
+                        Layout.preferredWidth: 100 * Style.uiScaleRatio
+                        Layout.preferredHeight: 75 * Style.uiScaleRatio
+                        radius: Style.radiusS
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Style.marginS
+
+                        NText {
+                            text: "Filename placeholder"
+                            pointSize: Style.fontSizeM
+                            font.weight: Style.fontWeightBold
+                            color: Color.mOnSurface
+                            elide: Text.ElideRight
+                            Layout.fillWidth: true
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: Style.marginS
+
+                            Rectangle {
+                                Layout.fillWidth: true
+                                height: Math.round(8 * Style.uiScaleRatio)
+                                radius: Math.min(Style.radiusL, height / 2)
+                                color: Color.mSurface
+
+                                Rectangle {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    height: parent.height
+                                    radius: parent.radius
+                                    width: parent.width * 0.6
+                                    color: Color.mPrimary
+                                }
+                            }
+
+                            NText {
+                                Layout.preferredWidth: 40 * Style.uiScaleRatio
+                                horizontalAlignment: Text.AlignRight
+                                text: "60%"
+                                color: Color.mOnSurface
+                                pointSize: Style.fontSizeS
+                                font.weight: Style.fontWeightBold
+                            }
+                        }
+                    }
+                }
+
+                NDivider {
+                    Layout.fillWidth: true
                 }
             }
         }
