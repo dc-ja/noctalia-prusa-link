@@ -52,6 +52,10 @@ Item {
     Component.onCompleted: root.fetchStatus()
 
     function fetchStatus() {
+        if (!root) {
+            return;
+        }
+
         root.error = "";
         const xhr = new XMLHttpRequest();
         xhr.open("GET", root.baseUrl + "/api/v1/status", true, root.username, root.password);
