@@ -193,6 +193,7 @@ Item {
                         sourceComponent: statusPropertyComponent
                         asynchronous: false
                         focus: false
+                        visible: mainInstance.printerState !== "OFFLINE"
 
                         readonly property color statusIconColor: Color.mOnSurfaceVariant
                         readonly property string statusIcon: "temperature"
@@ -212,6 +213,7 @@ Item {
                         sourceComponent: statusPropertyComponent
                         asynchronous: false
                         focus: false
+                        visible: mainInstance.printerState !== "OFFLINE"
 
                         readonly property color statusIconColor: Color.mOnSurfaceVariant
                         readonly property string statusIcon: "temperature"
@@ -230,6 +232,7 @@ Item {
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: Style.marginM
+                    visible: mainInstance.printerState !== "OFFLINE"
 
                     Loader {
                         Layout.fillWidth: true
@@ -292,6 +295,7 @@ Item {
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: Style.marginM
+                    visible: mainInstance.printerState !== "OFFLINE"
 
                     Loader {
                         Layout.fillWidth: true
