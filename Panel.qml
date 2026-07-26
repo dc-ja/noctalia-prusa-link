@@ -194,7 +194,7 @@ Item {
                         asynchronous: false
                         focus: false
 
-                        readonly property color statusIconColor: Color.mPrimary
+                        readonly property color statusIconColor: Color.mOnSurfaceVariant
                         readonly property string statusIcon: "temperature"
                         readonly property string statusLabel: "Nozzle temperature"
                         readonly property string statusValue: (mainInstance?.tempNozzle ?? 0).toFixed(1) + " °C / " + (mainInstance?.targetNozzle ?? 0).toFixed(1) + " °C"
@@ -213,7 +213,7 @@ Item {
                         asynchronous: false
                         focus: false
 
-                        readonly property color statusIconColor: Color.mPrimary
+                        readonly property color statusIconColor: Color.mOnSurfaceVariant
                         readonly property string statusIcon: "temperature"
                         readonly property string statusLabel: "Bed temperature"
                         readonly property string statusValue: (mainInstance?.tempBed ?? 0).toFixed(1) + " °C / " + (mainInstance?.targetBed ?? 0).toFixed(1) + " °C"
