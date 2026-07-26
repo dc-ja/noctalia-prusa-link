@@ -63,6 +63,10 @@ Item {
     property string jobFileDisplayName: ""
     property string jobFileIcon: ""
     property string jobFileThumbnail: ""
+    property string jobFileIconDataUrl: ""
+    property string jobFileThumbnailDataUrl: ""
+    property string __cachedIconUrl: ""
+    property string __cachedThumbnailUrl: ""
 
     Timer {
         interval: root.refreshIntervalSec * 1000
@@ -90,6 +94,8 @@ Item {
                 root.connected = false;
                 root.infoFetched = false;
                 root.printerState = "OFFLINE";
+                root.jobFileName = "";
+                
                 if (xhr.status !== 0) {
                     root.error = "HTTP " + xhr.status;
                     Logger.e("prusa-link", "Status fetch failed (HTTP " + xhr.status + ")");
@@ -167,6 +173,8 @@ Item {
                 root.jobFileDisplayName = "";
                 root.jobFileIcon = "";
                 root.jobFileThumbnail = "";
+                root.jobFileIconDataUrl = "";
+                root.jobFileThumbnailDataUrl = "";
                 return;
             }
             if (xhr.status !== 200) {
@@ -184,11 +192,52 @@ Item {
                 const refs = file.refs ?? {};
                 root.jobFileIcon = refs.icon ?? "";
                 root.jobFileThumbnail = refs.thumbnail ?? "";
+                if (refs.icon && refs.icon !== root.__cachedIconUrl) {
+                    root.jobFileIconDataUrl = "";
+                    root.__cachedIconUrl = "";
+                    root.fetchImageAsDataUrl(root.jobFileIcon, function (dataUrl) {
+                        root.jobFileIconDataUrl = dataUrl;
+                        if (dataUrl)
+                            root.__cachedIconUrl = root.jobFileIcon;
+                    });
+                }
+                if (refs.thumbnail && refs.thumbnail !== root.__cachedThumbnailUrl) {
+                    root.jobFileThumbnailDataUrl = "";
+                    root.__cachedThumbnailUrl = "";
+                    root.fetchImageAsDataUrl(root.jobFileThumbnail, function (dataUrl) {
+                        root.jobFileThumbnailDataUrl = dataUrl;
+                        if (dataUrl)
+                            root.__cachedThumbnailUrl = root.jobFileThumbnail;
+                    });
+                }
             } catch (e) {
                 Logger.e("prusa-link", "Failed to parse job:", e);
             }
         };
 
+        xhr.send();
+    }
+
+    function fetchImageAsDataUrl(relativePath, callback) {
+        const xhr = new XMLHttpRequest();
+        xhr.open("GET", root.baseUrl + relativePath, true, root.username, root.password);
+        xhr.timeout = 10000;
+        xhr.responseType = "arraybuffer";
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState !== XMLHttpRequest.DONE)
+                return;
+            if (xhr.status !== 200) {
+                callback("");
+                return;
+            }
+            const b64 = Qt.btoa(xhr.response);
+            const mimeType = relativePath.match(/\.([^.]+)$/)?.[1]?.toLowerCase();
+            let prefix = "data:image/";
+            if (mimeType === "png") prefix += "png";
+            else if (mimeType === "jpg" || mimeType === "jpeg") prefix += "jpeg";
+            else prefix += "png";
+            callback(prefix + ";base64," + b64);
+        };
         xhr.send();
     }
 

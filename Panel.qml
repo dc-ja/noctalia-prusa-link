@@ -89,6 +89,7 @@ Item {
         NBox {
             Layout.fillWidth: true
             implicitHeight: jobColumn.implicitHeight + Style.margin2L
+            visible: mainInstance?.jobFileName !== ""
 
             ColumnLayout {
                 id: jobColumn
@@ -101,12 +102,12 @@ Item {
                     Layout.fillWidth: true
                     spacing: Style.marginM
 
-                    Rectangle {
-                        id: thumbnailPlaceholder
-                        color: Color.mSurface
-                        Layout.preferredWidth: 100 * Style.uiScaleRatio
-                        Layout.preferredHeight: 75 * Style.uiScaleRatio
-                        radius: Style.radiusS
+                    Image {
+                        id: thumbnailImage
+                        source: mainInstance?.jobFileIconDataUrl || mainInstance?.jobFileThumbnailDataUrl || ""
+                        sourceSize: Qt.size(100 * Style.uiScaleRatio, 75 * Style.uiScaleRatio)
+                        fillMode: Image.PreserveAspectFit
+                        Layout.maximumHeight: 75 * Style.uiScaleRatio
                     }
 
                     ColumnLayout {
@@ -114,7 +115,7 @@ Item {
                         spacing: Style.marginS
 
                         NText {
-                            text: "Filename placeholder"
+                            text: mainInstance?.jobFileDisplayName || mainInstance?.jobFileName 
                             pointSize: Style.fontSizeM
                             font.weight: Style.fontWeightBold
                             color: Color.mOnSurface
@@ -136,7 +137,7 @@ Item {
                                     anchors.verticalCenter: parent.verticalCenter
                                     height: parent.height
                                     radius: parent.radius
-                                    width: parent.width * 0.6
+                                    width: parent.width * (mainInstance?.progress ?? 0) / 100
                                     color: Color.mPrimary
                                 }
                             }
@@ -144,7 +145,7 @@ Item {
                             NText {
                                 Layout.preferredWidth: 40 * Style.uiScaleRatio
                                 horizontalAlignment: Text.AlignRight
-                                text: "60%"
+                                text: Math.round(mainInstance?.progress ?? 0) + "%"
                                 color: Color.mOnSurface
                                 pointSize: Style.fontSizeS
                                 font.weight: Style.fontWeightBold
