@@ -71,12 +71,14 @@ Item {
     property int jobFileSize: 0
 
     /* ---------- temperature history ---------- */
+    readonly property real __tempResolution: 0.1
     readonly property int __historyWindowSec: 180
-    property var __tempTimestamps: []
-    property var nozzleTempHistory: []
-    property var nozzleTargetHistory: []
-    property var bedTempHistory: []
-    property var bedTargetHistory: []
+    readonly property int __tempArrayLen: Math.round(__historyWindowSec / __tempResolution)
+    property real __tempLastTs: 0
+    property var nozzleTempHistory: Array(__tempArrayLen).fill(0)
+    property var nozzleTargetHistory: Array(__tempArrayLen).fill(0)
+    property var bedTempHistory: Array(__tempArrayLen).fill(0)
+    property var bedTargetHistory: Array(__tempArrayLen).fill(0)
 
     Timer {
         interval: root.refreshIntervalSec * 1000
@@ -103,12 +105,6 @@ Item {
             if (xhr.status !== 200) {
                 root.connected = false;
                 root.infoFetched = false;
-                root.__tempTimestamps = [];
-                root.__tempHistory = [];
-                root.nozzleTempHistory = [];
-                root.nozzleTargetHistory = [];
-                root.bedTempHistory = [];
-                root.bedTargetHistory = [];
                 root.printerState = "OFFLINE";
                 root.jobFileName = "";
                 
@@ -337,18 +333,38 @@ Item {
     }
 
     function __pushTempEntry(tempNozzle, targetNozzle, tempBed, targetBed) {
-        root.__tempTimestamps.push(Date.now() / 1000);
-        root.nozzleTempHistory.push(tempNozzle);
-        root.nozzleTargetHistory.push(targetNozzle);
-        root.bedTempHistory.push(tempBed);
-        root.bedTargetHistory.push(targetBed);
-        const cutoff = root.__tempTimestamps[0] - root.__historyWindowSec;
-        while (root.__tempTimestamps.length > 1 && root.__tempTimestamps[0] < cutoff) {
-            root.__tempTimestamps.shift();
-            root.nozzleTempHistory.shift();
-            root.nozzleTargetHistory.shift();
-            root.bedTempHistory.shift();
-            root.bedTargetHistory.shift();
+        const ts = Math.round(Date.now() / 1000 / root.__tempResolution) * root.__tempResolution;
+
+        const n = root.nozzleTempHistory.length;
+        if (n === 0) {
+            root.nozzleTempHistory.push(tempNozzle);
+            root.nozzleTargetHistory.push(targetNozzle);
+            root.bedTempHistory.push(tempBed);
+            root.bedTargetHistory.push(targetBed);
+            root.__tempLastTs = ts;
+            return;
+        }
+        const prev = root.__tempLastTs || (ts - 1);
+        const prevNozzle = root.nozzleTempHistory[n - 1];
+        const prevTargetNozzle = root.nozzleTargetHistory[n - 1];
+        const prevBed = root.bedTempHistory[n - 1];
+        const prevTargetBed = root.bedTargetHistory[n - 1];
+        const dt = ts - prev;
+        const steps = Math.max(1, Math.round(dt / root.__tempResolution));
+        for (let i = 1; i <= steps; i++) {
+            const frac = i / steps;
+            root.nozzleTempHistory.push(prevNozzle + (tempNozzle - prevNozzle) * frac);
+            root.nozzleTargetHistory.push(prevTargetNozzle + (targetNozzle - prevTargetNozzle) * frac);
+            root.bedTempHistory.push(prevBed + (tempBed - prevBed) * frac);
+            root.bedTargetHistory.push(prevTargetBed + (targetBed - prevTargetBed) * frac);
+        }
+        root.__tempLastTs = ts;
+        const excess = root.nozzleTempHistory.length - root.__tempArrayLen;
+        if (excess > 0) {
+            root.nozzleTempHistory.splice(0, excess);
+            root.nozzleTargetHistory.splice(0, excess);
+            root.bedTempHistory.splice(0, excess);
+            root.bedTargetHistory.splice(0, excess);
         }
     }
 
