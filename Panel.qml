@@ -157,7 +157,7 @@ Item {
                         asynchronous: false
                         focus: false
 
-                        readonly property string statusIcon: "printer"
+                        readonly property string statusIcon: mainInstance.printerState === "OFFLINE" ? "printer-off" : "printer"
                         readonly property color statusIconColor: {
                             const s = mainInstance?.printerState ?? "OFFLINE";
                             if (s === "PRINTING" || s === "PAUSED") return Color.mPrimary;
@@ -536,6 +536,54 @@ Item {
                     Item {
                         Layout.fillWidth: true
                     }
+                }
+            }
+        }
+
+        NBox {
+            Layout.fillWidth: true
+            implicitHeight: graphsColumn.implicitHeight + Style.margin2L
+
+            ColumnLayout {
+                id: graphsColumn
+                anchors.fill: parent
+                anchors.margins: Style.marginL
+                spacing: Style.marginS
+
+                NText {
+                    text: "Nozzle temperature (°C)"
+                    pointSize: Style.fontSizeXS
+                    color: Color.mOnSurfaceVariant
+                }
+
+                NGraph {
+                    Layout.fillWidth: true
+                    implicitHeight: 100 * Style.uiScaleRatio
+                    values: mainInstance?.nozzleTempHistory ?? []
+                    values2: mainInstance?.nozzleTargetHistory ?? []
+                    color: Color.mPrimary
+                    color2: Color.mVariant
+                    minValue: 0
+                    maxValue: 300
+                    updateInterval: mainInstance?.refreshIntervalSec * 1000 ?? 10000
+                }
+
+                NText {
+                    text: "Bed temperature (°C)"
+                    pointSize: Style.fontSizeXS
+                    color: Color.mOnSurfaceVariant
+                }
+
+                NGraph {
+                    Layout.fillWidth: true
+                    implicitHeight: 100 * Style.uiScaleRatio
+                    values: mainInstance?.bedTempHistory ?? []
+                    values2: mainInstance?.bedTargetHistory ?? []
+                    color: Color.mPrimary
+                    color2: Color.mVariant
+                    minValue: 0
+                    maxValue: 120
+                    updateInterval: mainInstance?.refreshIntervalSec * 1000 ?? 10000
                 }
             }
         }

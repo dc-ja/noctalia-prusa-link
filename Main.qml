@@ -70,6 +70,14 @@ Item {
     property int jobFileMTime: 0
     property int jobFileSize: 0
 
+    /* ---------- temperature history ---------- */
+    readonly property int __historyWindowSec: 180
+    property var __tempTimestamps: []
+    property var nozzleTempHistory: []
+    property var nozzleTargetHistory: []
+    property var bedTempHistory: []
+    property var bedTargetHistory: []
+
     Timer {
         interval: root.refreshIntervalSec * 1000
         running: true
@@ -95,6 +103,12 @@ Item {
             if (xhr.status !== 200) {
                 root.connected = false;
                 root.infoFetched = false;
+                root.__tempTimestamps = [];
+                root.__tempHistory = [];
+                root.nozzleTempHistory = [];
+                root.nozzleTargetHistory = [];
+                root.bedTempHistory = [];
+                root.bedTargetHistory = [];
                 root.printerState = "OFFLINE";
                 root.jobFileName = "";
                 
@@ -127,6 +141,8 @@ Item {
         const storage = data.storage ?? {};
 
         root.printerState = printer.state ?? "OFFLINE";
+
+        root.__pushTempEntry(printer.temp_nozzle ?? 0, printer.target_nozzle ?? 0, printer.temp_bed ?? 0, printer.target_bed ?? 0);
 
         root.tempBed = printer.temp_bed ?? 0;
         root.targetBed = printer.target_bed ?? 0;
@@ -318,6 +334,22 @@ Item {
         if (bytes >= 1024)
             return (bytes / 1024).toFixed(1) + " KiB";
         return bytes + " B";
+    }
+
+    function __pushTempEntry(tempNozzle, targetNozzle, tempBed, targetBed) {
+        root.__tempTimestamps.push(Date.now() / 1000);
+        root.nozzleTempHistory.push(tempNozzle);
+        root.nozzleTargetHistory.push(targetNozzle);
+        root.bedTempHistory.push(tempBed);
+        root.bedTargetHistory.push(targetBed);
+        const cutoff = root.__tempTimestamps[0] - root.__historyWindowSec;
+        while (root.__tempTimestamps.length > 1 && root.__tempTimestamps[0] < cutoff) {
+            root.__tempTimestamps.shift();
+            root.nozzleTempHistory.shift();
+            root.nozzleTargetHistory.shift();
+            root.bedTempHistory.shift();
+            root.bedTargetHistory.shift();
+        }
     }
 
     function formatDateRelative(date, now) {
