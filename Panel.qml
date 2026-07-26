@@ -362,6 +362,115 @@ Item {
                 NDivider {
                     Layout.fillWidth: true
                 }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Style.marginM
+
+                    Loader {
+                        Layout.fillWidth: true
+                        sourceComponent: statusPropertyComponent
+                        asynchronous: false
+                        focus: false
+
+                        readonly property string statusIcon: "hourglass-high"
+                        readonly property color statusIconColor: Color.mOnSurfaceVariant
+                        readonly property string statusLabel: "Remaining time"
+                        readonly property string statusValue: mainInstance?.formatTime(mainInstance?.timeRemaining) ?? "--:--"
+
+                        onLoaded: {
+                            item.icon = statusIcon;
+                            item.iconColor = statusIconColor;
+                            item.label = statusLabel;
+                            item.value = statusValue;
+                        }
+                    }
+
+                    Loader {
+                        Layout.fillWidth: true
+                        sourceComponent: statusPropertyComponent
+                        asynchronous: false
+                        focus: false
+
+                        readonly property string statusIcon: "hourglass-low"
+                        readonly property color statusIconColor: Color.mOnSurfaceVariant
+                        readonly property string statusLabel: "Printing time"
+                        readonly property string statusValue: mainInstance?.formatTime(mainInstance?.timePrinting) ?? "--:--"
+
+                        onLoaded: {
+                            item.icon = statusIcon;
+                            item.iconColor = statusIconColor;
+                            item.label = statusLabel;
+                            item.value = statusValue;
+                        }
+                    }
+
+                    Loader {
+                        Layout.fillWidth: true
+                        sourceComponent: statusPropertyComponent
+                        asynchronous: false
+                        focus: false
+
+                        readonly property string statusIcon: "clock"
+                        readonly property color statusIconColor: Color.mOnSurfaceVariant
+                        readonly property string statusLabel: "Estimated end"
+                        readonly property string statusValue: mainInstance?.estimatedEndTime() ?? "--:--"
+
+                        onLoaded: {
+                            item.icon = statusIcon;
+                            item.iconColor = statusIconColor;
+                            item.label = statusLabel;
+                            item.value = statusValue;
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Style.marginM
+
+                    Loader {
+                        Layout.fillWidth: true
+                        sourceComponent: statusPropertyComponent
+                        asynchronous: false
+                        focus: false
+
+                        readonly property string statusIcon: "calendar"
+                        readonly property color statusIconColor: Color.mOnSurfaceVariant
+                        readonly property string statusLabel: "Last modified"
+                        readonly property string statusValue: mainInstance?.formatTimestamp(mainInstance?.jobFileMTime) ?? "--"
+
+                        onLoaded: {
+                            item.icon = statusIcon;
+                            item.iconColor = statusIconColor;
+                            item.label = statusLabel;
+                            item.value = statusValue;
+                        }
+                    }
+
+                    Loader {
+                        Layout.fillWidth: true
+                        sourceComponent: statusPropertyComponent
+                        asynchronous: false
+                        focus: false
+
+                        readonly property string statusIcon: "file"
+                        readonly property color statusIconColor: Color.mOnSurfaceVariant
+                        readonly property string statusLabel: "File size"
+                        readonly property string statusValue: mainInstance?.formatFileSize(mainInstance?.jobFileSize) ?? "--"
+
+                        onLoaded: {
+                            item.icon = statusIcon;
+                            item.iconColor = statusIconColor;
+                            item.label = statusLabel;
+                            item.value = statusValue;
+                        }
+                    }
+
+                    Item {
+                        Layout.fillWidth: true
+                    }
+                }
             }
         }
     }

@@ -67,6 +67,8 @@ Item {
     property string jobFileThumbnailDataUrl: ""
     property string __cachedIconUrl: ""
     property string __cachedThumbnailUrl: ""
+    property int jobFileMTime: 0
+    property int jobFileSize: 0
 
     Timer {
         interval: root.refreshIntervalSec * 1000
@@ -192,6 +194,8 @@ Item {
                 const refs = file.refs ?? {};
                 root.jobFileIcon = refs.icon ?? "";
                 root.jobFileThumbnail = refs.thumbnail ?? "";
+                root.jobFileMTime = file.m_timestamp ?? 0;
+                root.jobFileSize = file.size ?? 0;
                 if (refs.icon && refs.icon !== root.__cachedIconUrl) {
                     root.jobFileIconDataUrl = "";
                     root.__cachedIconUrl = "";
@@ -304,5 +308,54 @@ Item {
         if (rpm >= 1000)
             return (rpm / 1000).toFixed(1) + "k RPM";
         return rpm + " RPM";
+    }
+
+    function formatFileSize(bytes) {
+        if (!bytes || bytes <= 0)
+            return "--";
+        if (bytes >= 1048576)
+            return (bytes / 1048576).toFixed(1) + " MiB";
+        if (bytes >= 1024)
+            return (bytes / 1024).toFixed(1) + " KiB";
+        return bytes + " B";
+    }
+
+    function formatDateRelative(date, now) {
+        if (!now)
+            now = new Date();
+        const locale = Qt.locale();
+        const format = Locale.ShortFormat;
+
+        const todayStr = now.toLocaleDateString(locale, format);
+        const dateStr = date.toLocaleDateString(locale, format);
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowStr = tomorrow.toLocaleDateString(locale, format);
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toLocaleDateString(locale, format);
+
+        const timeStr = date.toLocaleTimeString(locale, format);
+
+        if (dateStr === todayStr)
+            return "Today at " + timeStr;
+        if (dateStr === tomorrowStr)
+            return "Tomorrow at " + timeStr;
+        if (dateStr === yesterdayStr)
+            return "Yesterday at " + timeStr;
+        return date.toLocaleString(locale, format);
+    }
+
+    function estimatedEndTime() {
+        if (!root.timeRemaining || root.timeRemaining <= 0)
+            return "--:--";
+        const end = new Date(Date.now() + root.timeRemaining * 1000);
+        return root.formatDateRelative(end);
+    }
+
+    function formatTimestamp(epoch) {
+        if (!epoch || epoch <= 0)
+            return "--";
+        return root.formatDateRelative(new Date(epoch * 1000));
     }
 }
