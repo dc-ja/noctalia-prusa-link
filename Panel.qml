@@ -13,11 +13,13 @@ Item {
     readonly property var geometryPlaceholder: panelContainer
     readonly property bool allowAttach: true
     property real contentPreferredWidth: 600 * Style.uiScaleRatio
-    property real contentPreferredHeight: 200 * Style.uiScaleRatio
+    //property real contentPreferredHeight: 200 * Style.uiScaleRatio
+    property real contentPreferredHeight: panelContainer.implicitHeight + 2 * Style.marginL
 
     anchors.fill: parent
 
     ColumnLayout {
+        id: panelContainer
         anchors.fill: parent
         anchors.margins: Style.marginL
         spacing: Style.marginM
@@ -80,6 +82,209 @@ Item {
                             pluginApi.withCurrentScreen(function(s) {
                                 pluginApi.closePanel(s);
                             });
+                        }
+                    }
+                }
+            }
+        }
+
+        Component {
+            id: statusPropertyComponent
+
+            Item {
+                id: statusPropRoot
+                implicitHeight: statusPropRow.implicitHeight
+                Layout.fillWidth: true
+
+                property string icon: ""
+                property color iconColor: Color.mOnSurfaceVariant
+                property string label: ""
+                property string value: ""
+
+                RowLayout {
+                    id: statusPropRow
+                    anchors.fill: parent
+                    spacing: Style.marginS
+
+                    NIcon {
+                        icon: statusPropRoot.icon
+                        pointSize: Style.fontSizeXL
+                        color: statusPropRoot.iconColor
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Style.marginXXS
+
+                        NText {
+                            Layout.fillWidth: true
+                            text: statusPropRoot.label
+                            pointSize: Style.fontSizeXS
+                            color: Color.mOnSurfaceVariant
+                            elide: Text.ElideRight
+                        }
+
+                        NText {
+                            Layout.fillWidth: true
+                            text: statusPropRoot.value
+                            pointSize: Style.fontSizeS
+                            font.weight: Style.fontWeightBold
+                            color: Color.mOnSurface
+                            elide: Text.ElideRight
+                        }
+                    }
+                }
+            }
+        }
+
+        NBox {
+            Layout.fillWidth: true
+            implicitHeight: statusColumn.implicitHeight + Style.margin2L
+
+            ColumnLayout {
+                id: statusColumn
+                anchors.fill: parent
+                anchors.margins: Style.marginL
+                spacing: Style.marginL
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Style.marginM
+
+                    Loader {
+                        Layout.fillWidth: true
+                        sourceComponent: statusPropertyComponent
+                        asynchronous: false
+                        focus: false
+
+                        readonly property string statusIcon: "printer"
+                        readonly property color statusIconColor: {
+                            const s = mainInstance?.printerState ?? "OFFLINE";
+                            if (s === "PRINTING" || s === "PAUSED") return Color.mPrimary;
+                            if (s === "ERROR" || s === "ATTENTION") return Color.mError;
+                            return Color.mOnSurfaceVariant;
+                        }
+                        readonly property string statusLabel: "Printer status"
+                        readonly property string statusValue: {
+                            const m = {
+                                "PRINTING": "Printing",
+                                "PAUSED": "Paused",
+                                "IDLE": "Idle",
+                                "READY": "Ready",
+                                "BUSY": "Busy",
+                                "FINISHED": "Finished",
+                                "STOPPED": "Stopped",
+                                "ERROR": "Error",
+                                "ATTENTION": "Attention"
+                            };
+                            return m[mainInstance?.printerState] ?? "Offline";
+                        }
+
+                        onLoaded: {
+                            item.icon = statusIcon;
+                            item.iconColor = statusIconColor;
+                            item.label = statusLabel;
+                            item.value = statusValue;
+                        }
+                    }
+
+                    Loader {
+                        Layout.fillWidth: true
+                        sourceComponent: statusPropertyComponent
+                        asynchronous: false
+                        focus: false
+
+                        readonly property color statusIconColor: Color.mPrimary
+                        readonly property string statusIcon: "temperature"
+                        readonly property string statusLabel: "Nozzle temperature"
+                        readonly property string statusValue: (mainInstance?.tempNozzle ?? 0).toFixed(1) + " °C / " + (mainInstance?.targetNozzle ?? 0).toFixed(1) + " °C"
+
+                        onLoaded: {
+                            item.icon = statusIcon;
+                            item.iconColor = statusIconColor;
+                            item.label = statusLabel;
+                            item.value = statusValue;
+                        }
+                    }
+
+                    Loader {
+                        Layout.fillWidth: true
+                        sourceComponent: statusPropertyComponent
+                        asynchronous: false
+                        focus: false
+
+                        readonly property color statusIconColor: Color.mPrimary
+                        readonly property string statusIcon: "temperature"
+                        readonly property string statusLabel: "Bed temperature"
+                        readonly property string statusValue: (mainInstance?.tempBed ?? 0).toFixed(1) + " °C / " + (mainInstance?.targetBed ?? 0).toFixed(1) + " °C"
+
+                        onLoaded: {
+                            item.icon = statusIcon;
+                            item.iconColor = statusIconColor;
+                            item.label = statusLabel;
+                            item.value = statusValue;
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Style.marginM
+
+                    Loader {
+                        Layout.fillWidth: true
+                        sourceComponent: statusPropertyComponent
+                        asynchronous: false
+                        focus: false
+
+                        readonly property string statusIcon: "gauge"
+                        readonly property color statusIconColor: Color.mOnSurfaceVariant
+                        readonly property string statusLabel: "Printing speed"
+                        readonly property string statusValue: (mainInstance?.speed ?? 100) + "%"
+
+                        onLoaded: {
+                            item.icon = statusIcon;
+                            item.iconColor = statusIconColor;
+                            item.label = statusLabel;
+                            item.value = statusValue;
+                        }
+                    }
+
+                    Loader {
+                        Layout.fillWidth: true
+                        sourceComponent: statusPropertyComponent
+                        asynchronous: false
+                        focus: false
+
+                        readonly property string statusIcon: "ruler-measure-2"
+                        readonly property color statusIconColor: Color.mOnSurfaceVariant
+                        readonly property string statusLabel: "Z-height"
+                        readonly property string statusValue: (mainInstance?.axisZ ?? 0).toFixed(1) + " mm"
+
+                        onLoaded: {
+                            item.icon = statusIcon;
+                            item.iconColor = statusIconColor;
+                            item.label = statusLabel;
+                            item.value = statusValue;
+                        }
+                    }
+
+                    Loader {
+                        Layout.fillWidth: true
+                        sourceComponent: statusPropertyComponent
+                        asynchronous: false
+                        focus: false
+
+                        readonly property string statusIcon: "ruler-measure"
+                        readonly property color statusIconColor: Color.mOnSurfaceVariant
+                        readonly property string statusLabel: "Nozzle diameter"
+                        readonly property string statusValue: (mainInstance?.infoNozzleDiameter ?? 0).toFixed(2) + " mm"
+
+                        onLoaded: {
+                            item.icon = statusIcon;
+                            item.iconColor = statusIconColor;
+                            item.label = statusLabel;
+                            item.value = statusValue;
                         }
                     }
                 }
@@ -158,10 +363,6 @@ Item {
                     Layout.fillWidth: true
                 }
             }
-        }
-
-        Item {
-            Layout.fillHeight: true
         }
     }
 }
