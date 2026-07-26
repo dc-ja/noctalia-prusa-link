@@ -80,9 +80,7 @@ Item {
     Component.onCompleted: root.fetchStatus()
 
     function fetchStatus() {
-        if (!root) {
-            return;
-        }
+        if (!root) return;
 
         root.error = "";
         const xhr = new XMLHttpRequest();
@@ -90,6 +88,8 @@ Item {
         xhr.timeout = 2000;
 
         xhr.onreadystatechange = function () {
+            if (!root) return;
+            
             if (xhr.readyState !== XMLHttpRequest.DONE)
                 return;
             if (xhr.status !== 200) {
