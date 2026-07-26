@@ -239,6 +239,68 @@ Item {
 
                         readonly property string statusIcon: "gauge"
                         readonly property color statusIconColor: Color.mOnSurfaceVariant
+                        readonly property string statusLabel: "Flow speed"
+                        readonly property string statusValue: (mainInstance?.flow ?? 100) + "%"
+
+                        onLoaded: {
+                            item.icon = statusIcon;
+                            item.iconColor = statusIconColor;
+                            item.label = statusLabel;
+                            item.value = statusValue;
+                        }
+                    }
+
+                    Loader {
+                        Layout.fillWidth: true
+                        sourceComponent: statusPropertyComponent
+                        asynchronous: false
+                        focus: false
+
+                        readonly property string statusIcon: "car-fan"
+                        readonly property color statusIconColor: Color.mOnSurfaceVariant
+                        readonly property string statusLabel: "Hotend fan"
+                        readonly property string statusValue: mainInstance?.formatFan(mainInstance?.fanHotend) ?? "0 RPM"
+
+                        onLoaded: {
+                            item.icon = statusIcon;
+                            item.iconColor = statusIconColor;
+                            item.label = statusLabel;
+                            item.value = statusValue;
+                        }
+                    }
+
+                    Loader {
+                        Layout.fillWidth: true
+                        sourceComponent: statusPropertyComponent
+                        asynchronous: false
+                        focus: false
+
+                        readonly property string statusIcon: "car-fan"
+                        readonly property color statusIconColor: Color.mOnSurfaceVariant
+                        readonly property string statusLabel: "Print fan"
+                        readonly property string statusValue: mainInstance?.formatFan(mainInstance?.fanPrint) ?? "0 RPM"
+
+                        onLoaded: {
+                            item.icon = statusIcon;
+                            item.iconColor = statusIconColor;
+                            item.label = statusLabel;
+                            item.value = statusValue;
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Style.marginM
+
+                    Loader {
+                        Layout.fillWidth: true
+                        sourceComponent: statusPropertyComponent
+                        asynchronous: false
+                        focus: false
+
+                        readonly property string statusIcon: "gauge"
+                        readonly property color statusIconColor: Color.mOnSurfaceVariant
                         readonly property string statusLabel: "Printing speed"
                         readonly property string statusValue: (mainInstance?.speed ?? 100) + "%"
 
