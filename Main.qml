@@ -344,7 +344,7 @@ Item {
             root.__tempLastTs = ts;
             return;
         }
-        const prev = root.__tempLastTs || (ts - 1);
+        const prev = ts - root.__tempLastTs > root.__tempArrayLen ? (ts - 1) : root.__tempLastTs;
         const prevNozzle = root.nozzleTempHistory[n - 1];
         const prevTargetNozzle = root.nozzleTargetHistory[n - 1];
         const prevBed = root.bedTempHistory[n - 1];
