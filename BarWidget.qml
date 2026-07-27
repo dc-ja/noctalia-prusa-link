@@ -120,6 +120,16 @@ Item {
                 "action": "refresh",
                 "icon": "refresh"
             },
+            {
+                "label": "Open web UI",
+                "action": "open_web_ui",
+                "icon": "external-link"
+            },
+            {
+                "label": "Widget settings",
+                "action": "settings",
+                "icon": "settings"
+            },
         ]
 
         onTriggered: (action, item) => {
@@ -127,6 +137,11 @@ Item {
             PanelService.closeContextMenu(root.screen);
             if (action === "refresh") {
                 mainInstance?.refresh();
+            } else if (action === "open_web_ui") {
+                const url = mainInstance?.baseUrl ?? "";
+                if (url) Quickshell.execDetached(["xdg-open", url]);
+            } else if (action === "settings") {
+                BarService.openPluginSettings(root.screen, pluginApi?.manifest);
             }
         }
     }
