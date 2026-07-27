@@ -342,6 +342,10 @@ Item {
             root.bedTempHistory.push(tempBed);
             root.bedTargetHistory.push(targetBed);
             root.__tempLastTs = ts;
+            root.nozzleTempHistory = root.nozzleTempHistory.slice();
+            root.nozzleTargetHistory = root.nozzleTargetHistory.slice();
+            root.bedTempHistory = root.bedTempHistory.slice();
+            root.bedTargetHistory = root.bedTargetHistory.slice();
             return;
         }
         const prev = ts - root.__tempLastTs > root.__tempArrayLen ? (ts - 1) : root.__tempLastTs;
@@ -366,6 +370,11 @@ Item {
             root.bedTempHistory.splice(0, excess);
             root.bedTargetHistory.splice(0, excess);
         }
+        // Reassign to new array so QML property binding detects the change (in-place push doesn't trigger onValuesChanged)
+        root.nozzleTempHistory = root.nozzleTempHistory.slice();
+        root.nozzleTargetHistory = root.nozzleTargetHistory.slice();
+        root.bedTempHistory = root.bedTempHistory.slice();
+        root.bedTargetHistory = root.bedTargetHistory.slice();
     }
 
     function formatDateRelative(date, now) {
