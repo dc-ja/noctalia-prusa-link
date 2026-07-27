@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import qs.Commons
 import qs.Widgets
+import qs.Services.UI
 
 Item {
     id: root
@@ -556,16 +557,15 @@ Item {
                     color: Color.mOnSurfaceVariant
                 }
 
-                NGraph {
+                GraphWithAxis {
                     Layout.fillWidth: true
-                    implicitHeight: 100 * Style.uiScaleRatio
-                    values: mainInstance?.nozzleTempHistory ?? []
-                    values2: mainInstance?.nozzleTargetHistory ?? []
-                    color: Color.mPrimary
-                    color2: Color.mVariant
-                    minValue: 0
                     maxValue: 300
-                    updateInterval: mainInstance?.refreshIntervalSec * 1000 ?? 10000
+                    unit: "°C"
+                    history1: mainInstance?.nozzleTempHistory ?? []
+                    history2: mainInstance?.nozzleTargetHistory ?? []
+                    color1: Color.mPrimary
+                    color2: Color.mVariant
+                    refreshInterval: mainInstance?.refreshIntervalSec * 1000 ?? 10000
                 }
 
                 NText {
@@ -574,16 +574,97 @@ Item {
                     color: Color.mOnSurfaceVariant
                 }
 
-                NGraph {
+                GraphWithAxis {
                     Layout.fillWidth: true
-                    implicitHeight: 100 * Style.uiScaleRatio
-                    values: mainInstance?.bedTempHistory ?? []
-                    values2: mainInstance?.bedTargetHistory ?? []
-                    color: Color.mPrimary
-                    color2: Color.mVariant
-                    minValue: 0
                     maxValue: 120
-                    updateInterval: mainInstance?.refreshIntervalSec * 1000 ?? 10000
+                    unit: "°C"
+                    history1: mainInstance?.bedTempHistory ?? []
+                    history2: mainInstance?.bedTargetHistory ?? []
+                    color1: Color.mPrimary
+                    color2: Color.mVariant
+                    refreshInterval: mainInstance?.refreshIntervalSec * 1000 ?? 10000
+                }
+            }
+        }
+    }
+
+    component GraphWithAxis: Item {
+        id: graphWithAxisRoot
+        Layout.fillWidth: true
+        implicitHeight: 100 * Style.uiScaleRatio
+
+        required property real maxValue
+        required property string unit
+        required property var history1
+        required property var history2
+        required property color color1
+        required property color color2
+        required property int refreshInterval
+
+        readonly property real yAxisWidth: 60 * Style.uiScaleRatio
+        readonly property real curvePadding: 0.12
+
+        function tickY(val) {
+            const padding = graphWithAxisRoot.maxValue * graphWithAxisRoot.curvePadding;
+            const paddedRange = graphWithAxisRoot.maxValue + 2 * padding;
+            const norm = (val + padding) / paddedRange;
+            return graphWithAxisRoot.height * (1.0 - norm);
+        }
+
+        NGraph {
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.rightMargin: graphWithAxisRoot.yAxisWidth
+            values: graphWithAxisRoot.history1
+            values2: graphWithAxisRoot.history2
+            color: graphWithAxisRoot.color1
+            color2: graphWithAxisRoot.color2
+            minValue: 0
+            maxValue: graphWithAxisRoot.maxValue
+            updateInterval: graphWithAxisRoot.refreshInterval
+        }
+
+        Repeater {
+            model: [
+                { value: 0, fraction: 0 },
+                { value: graphWithAxisRoot.maxValue * 0.25, fraction: 0.25 },
+                { value: graphWithAxisRoot.maxValue * 0.5, fraction: 0.5 },
+                { value: graphWithAxisRoot.maxValue * 0.75, fraction: 0.75 }
+            ]
+
+            delegate: Item {
+                required property var modelData
+                anchors.left: parent.left
+                anchors.right: parent.right
+                y: graphWithAxisRoot.tickY(modelData.value)
+                visible: graphWithAxisRoot.maxValue > 0
+
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.right: yLabel.left
+                    anchors.rightMargin: Style.marginXS
+                    height: 1
+                    color: Qt.alpha(Color.mOnSurface, 0.08)
+                }
+
+                Rectangle {
+                    id: yLabel
+                    anchors.right: parent.right
+                    y: -height / 2
+                    implicitWidth: yLabelText.implicitWidth + Style.marginXS * 2
+                    implicitHeight: yLabelText.implicitHeight + 2
+                    radius: Style.radiusXS
+                    color: Qt.alpha(graphWithAxisRoot.color1, 0.10)
+
+                    NText {
+                        id: yLabelText
+                        anchors.centerIn: parent
+                        text: Math.round(modelData.value) + " " + graphWithAxisRoot.unit
+                        pointSize: Style.fontSizeXS * 0.8
+                        color: Qt.alpha(graphWithAxisRoot.color1, 0.7)
+                    }
                 }
             }
         }
