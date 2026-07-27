@@ -3,7 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import qs.Commons
 import qs.Widgets
-import qs.Services.UI
+
 
 Item {
     id: root
@@ -89,55 +89,6 @@ Item {
             }
         }
 
-        Component {
-            id: statusPropertyComponent
-
-            Item {
-                id: statusPropRoot
-                implicitHeight: statusPropRow.implicitHeight
-                Layout.fillWidth: true
-
-                property string icon: ""
-                property color iconColor: Color.mOnSurfaceVariant
-                property string label: ""
-                property string value: ""
-
-                RowLayout {
-                    id: statusPropRow
-                    anchors.fill: parent
-                    spacing: Style.marginS
-
-                    NIcon {
-                        icon: statusPropRoot.icon
-                        pointSize: Style.fontSizeXL
-                        color: statusPropRoot.iconColor
-                    }
-
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: Style.marginXXS
-
-                        NText {
-                            Layout.fillWidth: true
-                            text: statusPropRoot.label
-                            pointSize: Style.fontSizeXS
-                            color: Color.mOnSurfaceVariant
-                            elide: Text.ElideRight
-                        }
-
-                        NText {
-                            Layout.fillWidth: true
-                            text: statusPropRoot.value
-                            pointSize: Style.fontSizeS
-                            font.weight: Style.fontWeightBold
-                            color: Color.mOnSurface
-                            elide: Text.ElideRight
-                        }
-                    }
-                }
-            }
-        }
-
         NBox {
             Layout.fillWidth: true
             implicitHeight: statusColumn.implicitHeight + Style.margin2L
@@ -152,21 +103,17 @@ Item {
                     Layout.fillWidth: true
                     spacing: Style.marginM
 
-                    Loader {
+                    StatusProperty {
                         Layout.fillWidth: true
-                        sourceComponent: statusPropertyComponent
-                        asynchronous: false
-                        focus: false
-
-                        readonly property string statusIcon: mainInstance.printerState === "OFFLINE" ? "printer-off" : "printer"
-                        readonly property color statusIconColor: {
+                        icon: mainInstance.printerState === "OFFLINE" ? "printer-off" : "printer"
+                        iconColor: {
                             const s = mainInstance?.printerState ?? "OFFLINE";
                             if (s === "PRINTING" || s === "PAUSED") return Color.mPrimary;
                             if (s === "ERROR" || s === "ATTENTION") return Color.mError;
                             return Color.mOnSurfaceVariant;
                         }
-                        readonly property string statusLabel: "Printer status"
-                        readonly property string statusValue: {
+                        label: "Printer status"
+                        value: {
                             const m = {
                                 "PRINTING": "Printing",
                                 "PAUSED": "Paused",
@@ -180,53 +127,24 @@ Item {
                             };
                             return m[mainInstance?.printerState] ?? "Offline";
                         }
-
-                        onLoaded: {
-                            item.icon = statusIcon;
-                            item.iconColor = statusIconColor;
-                            item.label = statusLabel;
-                            item.value = statusValue;
-                        }
                     }
 
-                    Loader {
+                    StatusProperty {
                         Layout.fillWidth: true
-                        sourceComponent: statusPropertyComponent
-                        asynchronous: false
-                        focus: false
                         visible: mainInstance.printerState !== "OFFLINE"
-
-                        readonly property color statusIconColor: Color.mOnSurfaceVariant
-                        readonly property string statusIcon: "temperature"
-                        readonly property string statusLabel: "Nozzle temperature"
-                        readonly property string statusValue: (mainInstance?.tempNozzle ?? 0).toFixed(1) + " °C / " + (mainInstance?.targetNozzle ?? 0).toFixed(1) + " °C"
-
-                        onLoaded: {
-                            item.icon = statusIcon;
-                            item.iconColor = statusIconColor;
-                            item.label = statusLabel;
-                            item.value = statusValue;
-                        }
+                        icon: "temperature"
+                        iconColor: Color.mOnSurfaceVariant
+                        label: "Nozzle temperature"
+                        value: (mainInstance?.tempNozzle ?? 0).toFixed(1) + " °C / " + (mainInstance?.targetNozzle ?? 0).toFixed(1) + " °C"
                     }
 
-                    Loader {
+                    StatusProperty {
                         Layout.fillWidth: true
-                        sourceComponent: statusPropertyComponent
-                        asynchronous: false
-                        focus: false
                         visible: mainInstance.printerState !== "OFFLINE"
-
-                        readonly property color statusIconColor: Color.mOnSurfaceVariant
-                        readonly property string statusIcon: "temperature"
-                        readonly property string statusLabel: "Bed temperature"
-                        readonly property string statusValue: (mainInstance?.tempBed ?? 0).toFixed(1) + " °C / " + (mainInstance?.targetBed ?? 0).toFixed(1) + " °C"
-
-                        onLoaded: {
-                            item.icon = statusIcon;
-                            item.iconColor = statusIconColor;
-                            item.label = statusLabel;
-                            item.value = statusValue;
-                        }
+                        icon: "temperature"
+                        iconColor: Color.mOnSurfaceVariant
+                        label: "Bed temperature"
+                        value: (mainInstance?.tempBed ?? 0).toFixed(1) + " °C / " + (mainInstance?.targetBed ?? 0).toFixed(1) + " °C"
                     }
                 }
 
@@ -235,61 +153,28 @@ Item {
                     spacing: Style.marginM
                     visible: mainInstance.printerState !== "OFFLINE"
 
-                    Loader {
+                    StatusProperty {
                         Layout.fillWidth: true
-                        sourceComponent: statusPropertyComponent
-                        asynchronous: false
-                        focus: false
-
-                        readonly property string statusIcon: "gauge"
-                        readonly property color statusIconColor: Color.mOnSurfaceVariant
-                        readonly property string statusLabel: "Flow speed"
-                        readonly property string statusValue: (mainInstance?.flow ?? 100) + "%"
-
-                        onLoaded: {
-                            item.icon = statusIcon;
-                            item.iconColor = statusIconColor;
-                            item.label = statusLabel;
-                            item.value = statusValue;
-                        }
+                        icon: "gauge"
+                        iconColor: Color.mOnSurfaceVariant
+                        label: "Flow speed"
+                        value: (mainInstance?.flow ?? 100) + "%"
                     }
 
-                    Loader {
+                    StatusProperty {
                         Layout.fillWidth: true
-                        sourceComponent: statusPropertyComponent
-                        asynchronous: false
-                        focus: false
-
-                        readonly property string statusIcon: "car-fan"
-                        readonly property color statusIconColor: Color.mOnSurfaceVariant
-                        readonly property string statusLabel: "Hotend fan"
-                        readonly property string statusValue: mainInstance?.formatFan(mainInstance?.fanHotend) ?? "0 RPM"
-
-                        onLoaded: {
-                            item.icon = statusIcon;
-                            item.iconColor = statusIconColor;
-                            item.label = statusLabel;
-                            item.value = statusValue;
-                        }
+                        icon: "car-fan"
+                        iconColor: Color.mOnSurfaceVariant
+                        label: "Hotend fan"
+                        value: mainInstance?.formatFan(mainInstance?.fanHotend) ?? "0 RPM"
                     }
 
-                    Loader {
+                    StatusProperty {
                         Layout.fillWidth: true
-                        sourceComponent: statusPropertyComponent
-                        asynchronous: false
-                        focus: false
-
-                        readonly property string statusIcon: "car-fan"
-                        readonly property color statusIconColor: Color.mOnSurfaceVariant
-                        readonly property string statusLabel: "Print fan"
-                        readonly property string statusValue: mainInstance?.formatFan(mainInstance?.fanPrint) ?? "0 RPM"
-
-                        onLoaded: {
-                            item.icon = statusIcon;
-                            item.iconColor = statusIconColor;
-                            item.label = statusLabel;
-                            item.value = statusValue;
-                        }
+                        icon: "car-fan"
+                        iconColor: Color.mOnSurfaceVariant
+                        label: "Print fan"
+                        value: mainInstance?.formatFan(mainInstance?.fanPrint) ?? "0 RPM"
                     }
                 }
 
@@ -298,61 +183,28 @@ Item {
                     spacing: Style.marginM
                     visible: mainInstance.printerState !== "OFFLINE"
 
-                    Loader {
+                    StatusProperty {
                         Layout.fillWidth: true
-                        sourceComponent: statusPropertyComponent
-                        asynchronous: false
-                        focus: false
-
-                        readonly property string statusIcon: "gauge"
-                        readonly property color statusIconColor: Color.mOnSurfaceVariant
-                        readonly property string statusLabel: "Printing speed"
-                        readonly property string statusValue: (mainInstance?.speed ?? 100) + "%"
-
-                        onLoaded: {
-                            item.icon = statusIcon;
-                            item.iconColor = statusIconColor;
-                            item.label = statusLabel;
-                            item.value = statusValue;
-                        }
+                        icon: "gauge"
+                        iconColor: Color.mOnSurfaceVariant
+                        label: "Printing speed"
+                        value: (mainInstance?.speed ?? 100) + "%"
                     }
 
-                    Loader {
+                    StatusProperty {
                         Layout.fillWidth: true
-                        sourceComponent: statusPropertyComponent
-                        asynchronous: false
-                        focus: false
-
-                        readonly property string statusIcon: "ruler-measure-2"
-                        readonly property color statusIconColor: Color.mOnSurfaceVariant
-                        readonly property string statusLabel: "Z-height"
-                        readonly property string statusValue: (mainInstance?.axisZ ?? 0).toFixed(1) + " mm"
-
-                        onLoaded: {
-                            item.icon = statusIcon;
-                            item.iconColor = statusIconColor;
-                            item.label = statusLabel;
-                            item.value = statusValue;
-                        }
+                        icon: "ruler-measure-2"
+                        iconColor: Color.mOnSurfaceVariant
+                        label: "Z-height"
+                        value: (mainInstance?.axisZ ?? 0).toFixed(1) + " mm"
                     }
 
-                    Loader {
+                    StatusProperty {
                         Layout.fillWidth: true
-                        sourceComponent: statusPropertyComponent
-                        asynchronous: false
-                        focus: false
-
-                        readonly property string statusIcon: "ruler-measure"
-                        readonly property color statusIconColor: Color.mOnSurfaceVariant
-                        readonly property string statusLabel: "Nozzle diameter"
-                        readonly property string statusValue: (mainInstance?.infoNozzleDiameter ?? 0).toFixed(2) + " mm"
-
-                        onLoaded: {
-                            item.icon = statusIcon;
-                            item.iconColor = statusIconColor;
-                            item.label = statusLabel;
-                            item.value = statusValue;
-                        }
+                        icon: "ruler-measure"
+                        iconColor: Color.mOnSurfaceVariant
+                        label: "Nozzle diameter"
+                        value: (mainInstance?.infoNozzleDiameter ?? 0).toFixed(2) + " mm"
                     }
                 }
             }
@@ -434,61 +286,28 @@ Item {
                     Layout.fillWidth: true
                     spacing: Style.marginM
 
-                    Loader {
+                    StatusProperty {
                         Layout.fillWidth: true
-                        sourceComponent: statusPropertyComponent
-                        asynchronous: false
-                        focus: false
-
-                        readonly property string statusIcon: "hourglass-high"
-                        readonly property color statusIconColor: Color.mOnSurfaceVariant
-                        readonly property string statusLabel: "Remaining time"
-                        readonly property string statusValue: mainInstance?.formatTime(mainInstance?.timeRemaining) ?? "--:--"
-
-                        onLoaded: {
-                            item.icon = statusIcon;
-                            item.iconColor = statusIconColor;
-                            item.label = statusLabel;
-                            item.value = statusValue;
-                        }
+                        icon: "hourglass-high"
+                        iconColor: Color.mOnSurfaceVariant
+                        label: "Remaining time"
+                        value: mainInstance?.formatTime(mainInstance?.timeRemaining) ?? "--:--"
                     }
 
-                    Loader {
+                    StatusProperty {
                         Layout.fillWidth: true
-                        sourceComponent: statusPropertyComponent
-                        asynchronous: false
-                        focus: false
-
-                        readonly property string statusIcon: "hourglass-low"
-                        readonly property color statusIconColor: Color.mOnSurfaceVariant
-                        readonly property string statusLabel: "Printing time"
-                        readonly property string statusValue: mainInstance?.formatTime(mainInstance?.timePrinting) ?? "--:--"
-
-                        onLoaded: {
-                            item.icon = statusIcon;
-                            item.iconColor = statusIconColor;
-                            item.label = statusLabel;
-                            item.value = statusValue;
-                        }
+                        icon: "hourglass-low"
+                        iconColor: Color.mOnSurfaceVariant
+                        label: "Printing time"
+                        value: mainInstance?.formatTime(mainInstance?.timePrinting) ?? "--:--"
                     }
 
-                    Loader {
+                    StatusProperty {
                         Layout.fillWidth: true
-                        sourceComponent: statusPropertyComponent
-                        asynchronous: false
-                        focus: false
-
-                        readonly property string statusIcon: "clock"
-                        readonly property color statusIconColor: Color.mOnSurfaceVariant
-                        readonly property string statusLabel: "Estimated end"
-                        readonly property string statusValue: mainInstance?.estimatedEndTime() ?? "--:--"
-
-                        onLoaded: {
-                            item.icon = statusIcon;
-                            item.iconColor = statusIconColor;
-                            item.label = statusLabel;
-                            item.value = statusValue;
-                        }
+                        icon: "clock"
+                        iconColor: Color.mOnSurfaceVariant
+                        label: "Estimated end"
+                        value: mainInstance?.estimatedEndTime() ?? "--:--"
                     }
                 }
 
@@ -496,42 +315,20 @@ Item {
                     Layout.fillWidth: true
                     spacing: Style.marginM
 
-                    Loader {
+                    StatusProperty {
                         Layout.fillWidth: true
-                        sourceComponent: statusPropertyComponent
-                        asynchronous: false
-                        focus: false
-
-                        readonly property string statusIcon: "calendar"
-                        readonly property color statusIconColor: Color.mOnSurfaceVariant
-                        readonly property string statusLabel: "Last modified"
-                        readonly property string statusValue: mainInstance?.formatTimestamp(mainInstance?.jobFileMTime) ?? "--"
-
-                        onLoaded: {
-                            item.icon = statusIcon;
-                            item.iconColor = statusIconColor;
-                            item.label = statusLabel;
-                            item.value = statusValue;
-                        }
+                        icon: "calendar"
+                        iconColor: Color.mOnSurfaceVariant
+                        label: "Last modified"
+                        value: mainInstance?.formatTimestamp(mainInstance?.jobFileMTime) ?? "--"
                     }
 
-                    Loader {
+                    StatusProperty {
                         Layout.fillWidth: true
-                        sourceComponent: statusPropertyComponent
-                        asynchronous: false
-                        focus: false
-
-                        readonly property string statusIcon: "file"
-                        readonly property color statusIconColor: Color.mOnSurfaceVariant
-                        readonly property string statusLabel: "File size"
-                        readonly property string statusValue: mainInstance?.formatFileSize(mainInstance?.jobFileSize) ?? "--"
-
-                        onLoaded: {
-                            item.icon = statusIcon;
-                            item.iconColor = statusIconColor;
-                            item.label = statusLabel;
-                            item.value = statusValue;
-                        }
+                        icon: "file"
+                        iconColor: Color.mOnSurfaceVariant
+                        label: "File size"
+                        value: mainInstance?.formatFileSize(mainInstance?.jobFileSize) ?? "--"
                     }
 
                     Item {
@@ -665,6 +462,51 @@ Item {
                         pointSize: Style.fontSizeXS * 0.8
                         color: Qt.alpha(graphWithAxisRoot.color1, 0.7)
                     }
+                }
+            }
+        }
+    }
+
+    component StatusProperty: Item {
+        id: statusPropRoot
+        implicitHeight: statusPropRow.implicitHeight
+        Layout.fillWidth: true
+
+        required property string icon
+        required property color iconColor
+        required property string label
+        required property string value
+
+        RowLayout {
+            id: statusPropRow
+            anchors.fill: parent
+            spacing: Style.marginS
+
+            NIcon {
+                icon: statusPropRoot.icon
+                pointSize: Style.fontSizeXL
+                color: statusPropRoot.iconColor
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: Style.marginXXS
+
+                NText {
+                    Layout.fillWidth: true
+                    text: statusPropRoot.label
+                    pointSize: Style.fontSizeXS
+                    color: Color.mOnSurfaceVariant
+                    elide: Text.ElideRight
+                }
+
+                NText {
+                    Layout.fillWidth: true
+                    text: statusPropRoot.value
+                    pointSize: Style.fontSizeS
+                    font.weight: Style.fontWeightBold
+                    color: Color.mOnSurface
+                    elide: Text.ElideRight
                 }
             }
         }
