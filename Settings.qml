@@ -17,15 +17,7 @@ ColumnLayout {
     }
 
     spacing: Style.marginL
-
-    NText {
-        text: "PrusaLink Settings"
-        pointSize: Style.fontSizeXL
-        font.weight: Style.fontWeightBold
-        color: Color.mOnSurface
-        Layout.fillWidth: true
-    }
-
+    
     Rectangle {
         Layout.fillWidth: true
         color: root.sectionBackgroundColor
@@ -49,83 +41,88 @@ ColumnLayout {
                 color: Color.mPrimary
             }
 
-            ColumnLayout {
+            RowLayout {
                 Layout.fillWidth: true
-                spacing: Style.marginXS
 
-                NText {
-                    text: "Protocol"
-                    pointSize: Style.fontSizeM
-                    font.weight: Style.fontWeightSemiBold
-                    color: Color.mOnSurface
-                }
-                NText {
-                    text: "HTTP or HTTPS"
-                    pointSize: Style.fontSizeXS
-                    color: Color.mOnSurfaceVariant
-                }
+                ColumnLayout {
+                    spacing: Style.marginXS
 
-                NComboBox {
-                    model: [
-                        {key: "https", name: "HTTPS"},
-                        {key: "http", name: "HTTP"}
-                    ]
-                    currentKey: editSettings?.protocol ?? "https"
-                    onSelected: function(key) {
-                        editSettings.protocol = key;
+                    NText {
+                        text: "Protocol"
+                        pointSize: Style.fontSizeM
+                        font.weight: Style.fontWeightSemiBold
+                        color: Color.mOnSurface
+                    }
+                    NText {
+                        text: "HTTP or HTTPS"
+                        pointSize: Style.fontSizeXS
+                        color: Color.mOnSurfaceVariant
+                    }
+
+                    NComboBox {
+                        minimumWidth: 120
+                        Layout.preferredWidth: 120
+
+                        model: [
+                            {key: "https", name: "HTTPS"},
+                            {key: "http", name: "HTTP"}
+                        ]
+                        currentKey: editSettings?.protocol ?? "https"
+                        onSelected: function(key) {
+                            editSettings.protocol = key;
+                        }
                     }
                 }
-            }
 
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: Style.marginXS
-
-                NText {
-                    text: "Host"
-                    pointSize: Style.fontSizeM
-                    font.weight: Style.fontWeightSemiBold
-                    color: Color.mOnSurface
-                }
-                NText {
-                    text: "IP address or hostname of the PrusaLink instance"
-                    pointSize: Style.fontSizeXS
-                    color: Color.mOnSurfaceVariant
-                }
-
-                NTextInput {
+                ColumnLayout {
                     Layout.fillWidth: true
-                    placeholderText: "127.0.0.1"
-                    text: editSettings?.host ?? "127.0.0.1"
-                    onTextChanged: {
-                        editSettings.host = text;
+                    spacing: Style.marginXS
+
+                    NText {
+                        text: "Host"
+                        pointSize: Style.fontSizeM
+                        font.weight: Style.fontWeightSemiBold
+                        color: Color.mOnSurface
+                    }
+                    NText {
+                        text: "IP address or hostname"
+                        pointSize: Style.fontSizeXS
+                        color: Color.mOnSurfaceVariant
+                    }
+
+                    NTextInput {
+                        Layout.fillWidth: true
+                        placeholderText: "127.0.0.1"
+                        text: editSettings?.host ?? "127.0.0.1"
+                        onTextChanged: {
+                            editSettings.host = text;
+                        }
                     }
                 }
-            }
 
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: Style.marginXS
+                ColumnLayout {
+                    spacing: Style.marginXS
 
-                NText {
-                    text: "Port"
-                    pointSize: Style.fontSizeM
-                    font.weight: Style.fontWeightSemiBold
-                    color: Color.mOnSurface
-                }
-                NText {
-                    text: "HTTP port for the PrusaLink API"
-                    pointSize: Style.fontSizeXS
-                    color: Color.mOnSurfaceVariant
-                }
+                    NText {
+                        text: "Port"
+                        pointSize: Style.fontSizeM
+                        font.weight: Style.fontWeightSemiBold
+                        color: Color.mOnSurface
+                    }
+                    NText {
+                        text: "Port for the API"
+                        pointSize: Style.fontSizeXS
+                        color: Color.mOnSurfaceVariant
+                    }
 
-                NSpinBox {
-                    from: 1
-                    to: 65535
-                    value: editSettings?.port ?? 8080
-                    stepSize: 1
-                    onValueChanged: {
-                        editSettings.port = value;
+                    NSpinBox {
+                        from: 1
+                        to: 65535
+                        value: editSettings?.port ?? 8080
+                        stepSize: 1
+                        onValueChanged: {
+                            editSettings.port = value;
+                        }
                     }
                 }
             }
