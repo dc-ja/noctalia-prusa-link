@@ -121,14 +121,14 @@ Item {
         model: [
             {
                 "label": "Pause print",
-                "action": "player-pause",
-                "icon": "pause",
+                "action": "pause",
+                "icon": "player-pause",
                 "visible": contextMenu.isPrinting
             },
             {
                 "label": "Resume print",
-                "action": "player-play",
-                "icon": "play",
+                "action": "play",
+                "icon": "player-play",
                 "visible": contextMenu.isPaused
             },
             {
