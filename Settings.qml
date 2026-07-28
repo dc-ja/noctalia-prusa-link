@@ -18,20 +18,14 @@ ColumnLayout {
 
     spacing: Style.marginL
     
-    Rectangle {
+    NBox {
         Layout.fillWidth: true
-        color: root.sectionBackgroundColor
-        radius: Style.radiusS
-        implicitHeight: connectionColumn.implicitHeight + Style.marginXL
+        implicitHeight: connectionColumn.implicitHeight + 2 * Style.marginL
 
         ColumnLayout {
             id: connectionColumn
-            anchors {
-                left: parent.left
-                right: parent.right
-                top: parent.top
-                margins: Style.marginL
-            }
+            anchors.fill: parent
+            anchors.margins: Style.marginL
             spacing: Style.marginM
 
             NText {
@@ -179,52 +173,132 @@ ColumnLayout {
                     }
                 }
             }
+        }
+    }
+    
+    NBox {
+        Layout.fillWidth: true
+        implicitHeight: refreshColumn.implicitHeight + 2 * Style.marginL
 
-            ColumnLayout {
+        ColumnLayout {
+            id: refreshColumn
+            anchors.fill: parent
+            anchors.margins: Style.marginL
+            spacing: Style.marginM
+            Layout.fillWidth: true
+
+            NText {
+                text: "Refresh intervals"
+                pointSize: Style.fontSizeL
+                font.weight: Style.fontWeightSemiBold
+                color: Color.mPrimary
+            }
+
+            RowLayout {
                 Layout.fillWidth: true
                 spacing: Style.marginXS
 
-                NText {
-                    text: "Refresh interval (seconds)"
-                    pointSize: Style.fontSizeM
-                    font.weight: Style.fontWeightSemiBold
-                    color: Color.mOnSurface
-                }
-                NText {
-                    text: "How often to poll the printer status"
-                    pointSize: Style.fontSizeXS
-                    color: Color.mOnSurfaceVariant
-                }
+                Item {
+                    Layout.fillWidth: true
+                    implicitHeight: offlineRefreshColumn.implicitHeight
 
-                NSpinBox {
-                    from: 2
-                    to: 120
-                    value: editSettings?.refreshIntervalSec ?? 10
-                    stepSize: 1
-                    onValueChanged: {
-                        editSettings.refreshIntervalSec = value;
+                    ColumnLayout {
+                        id: offlineRefreshColumn
+                        anchors.fill: parent
+                        spacing: Style.marginXS
+
+                        NText {
+                            text: "Offline"
+                            pointSize: Style.fontSizeM
+                            font.weight: Style.fontWeightSemiBold
+                            color: Color.mOnSurface
+                        }
+                        NText {
+                            text: "Printer is unreachable"
+                            pointSize: Style.fontSizeXS
+                            color: Color.mOnSurfaceVariant
+                        }
+
+                        NSpinBox {
+                            from: 1
+                            to: 120
+                            value: editSettings?.offlineRefreshIntervalSec ?? 10
+                            stepSize: 1
+                            suffix: " s"
+                            onValueChanged: {
+                                editSettings.offlineRefreshIntervalSec = value;
+                            }
+                        }
                     }
                 }
-            }
-        }
-    }
 
-    Item {
-        Layout.fillHeight: true
-    }
+                Item {
+                    Layout.fillWidth: true
+                    implicitHeight: idleRefreshColumn.implicitHeight
+                    
+                    ColumnLayout {
+                        id: idleRefreshColumn
+                        anchors.fill: parent
+                        spacing: Style.marginXS
 
-    RowLayout {
-        Layout.fillWidth: true
-        spacing: Style.marginM
+                        NText {
+                            text: "Idle"
+                            pointSize: Style.fontSizeM
+                            font.weight: Style.fontWeightSemiBold
+                            color: Color.mOnSurface
+                        }
+                        NText {
+                            text: "Printer is on (no job running)"
+                            pointSize: Style.fontSizeXS
+                            color: Color.mOnSurfaceVariant
+                        }
 
-        Item {
-            Layout.fillWidth: true
-        }
+                        NSpinBox {
+                            from: 1
+                            to: 120
+                            value: editSettings?.idleRefreshIntervalSec ?? 2
+                            stepSize: 1
+                            suffix: " s"
+                            onValueChanged: {
+                                editSettings.idleRefreshIntervalSec = value;
+                            }
+                        }
+                    }
+                }
 
-        NButton {
-            text: "Reset"
-            onClicked: {
-                root.editSettings = JSON.parse(JSON.stringify(pluginApi?.manifest?.metadata?.defaultSettings ?? {}));
+                Item {
+                    Layout.fillWidth: true
+                    implicitHeight: jobRefreshColumn.implicitHeight
+                    
+                    ColumnLayout {
+                        id: jobRefreshColumn
+                        anchors.fill: parent
+                        spacing: Style.marginXS
+
+                        NText {
+                            text: "Printing"
+                            pointSize: Style.fontSizeM
+                            font.weight: Style.fontWeightSemiBold
+                            color: Color.mOnSurface
+                        }
+                        NText {
+                            text: "Job is running"
+                            pointSize: Style.fontSizeXS
+                            color: Color.mOnSurfaceVariant
+                        }
+
+                        NSpinBox {
+                            from: 1
+                            to: 120
+                            value: editSettings?.printingRefreshIntervalSec ?? 1
+                            stepSize: 1
+                            suffix: " s"
+                            onValueChanged: {
+                                editSettings.printingRefreshIntervalSec = value;
+                            }
+                        }
+                    }
+                }
             }
         }
     }

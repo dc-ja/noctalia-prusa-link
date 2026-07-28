@@ -1,7 +1,7 @@
 {
   "id": "prusa-link",
   "name": "PrusaLink",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "minNoctaliaVersion": "4.7.7",
   "author": "dc-ja",
   "license": "MIT",
@@ -27,7 +27,9 @@
       "port": 8080,
       "username": "maker",
       "password": "",
-      "refreshIntervalSec": 10
+      "offlineRefreshIntervalSec": 10,
+      "idleRefreshIntervalSec": 2,
+      "printingRefreshIntervalSec": 1
     }
   }
 }

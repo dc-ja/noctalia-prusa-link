@@ -15,7 +15,14 @@ Item {
     readonly property string username: pluginSettings?.username ?? "maker"
     readonly property string password: pluginSettings?.password ?? ""
     readonly property string baseUrl: protocol + "://" + host + ":" + port
-    property int refreshIntervalSec: pluginSettings?.refreshIntervalSec ?? 10
+    property int offlineRefreshIntervalSec: pluginSettings?.offlineRefreshIntervalSec ?? 10
+    readonly property int idleRefreshIntervalSec: pluginSettings?.idleRefreshIntervalSec ?? 2
+    readonly property int printingRefreshIntervalSec: pluginSettings?.printingRefreshIntervalSec ?? 1
+    readonly property int currentRefreshIntervalSec: {
+        if (printerState === "OFFLINE") return root.offlineRefreshIntervalSec;
+        if (printerState === "PRINTING" || printerState === "PAUSED") return root.printingRefreshIntervalSec;
+        return root.idleRefreshIntervalSec;
+    }
 
     /* ---------- printer info ---------- */
     property bool infoFetched: false
@@ -81,7 +88,7 @@ Item {
     property var bedTargetHistory: Array(__tempArrayLen).fill(0)
 
     Timer {
-        interval: root.refreshIntervalSec * 1000
+        interval: root.currentRefreshIntervalSec * 1000
         running: true
         repeat: true
         onTriggered: root.fetchStatus()

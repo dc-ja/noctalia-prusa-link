@@ -362,7 +362,7 @@ Item {
                     history2: mainInstance?.nozzleTargetHistory ?? []
                     color1: Color.mPrimary
                     color2: Color.mVariant
-                    refreshInterval: mainInstance?.refreshIntervalSec * 1000 ?? 10000
+                    refreshInterval: mainInstance?.currentRefreshIntervalSec * 1000 ?? 10000
                 }
 
                 NText {
@@ -379,7 +379,7 @@ Item {
                     history2: mainInstance?.bedTargetHistory ?? []
                     color1: Color.mPrimary
                     color2: Color.mVariant
-                    refreshInterval: mainInstance?.refreshIntervalSec * 1000 ?? 10000
+                    refreshInterval: mainInstance?.currentRefreshIntervalSec * 1000 ?? 10000
                 }
             }
         }
