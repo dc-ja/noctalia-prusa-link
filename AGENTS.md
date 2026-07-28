@@ -7,9 +7,9 @@ Bar widget that shows your Prusa printer state and print progress, powered by th
 - **Bar widget**: shows printer icon + progress % when printing, `IDLE` when idle, `—` when disconnected. Color-coded: primary (printing), variant (idle), error (offline/error/attention).
 - **Tooltip on hover**: full status from the API — state, progress, time remaining, print time, nozzle/bed temps (actual/target), Z height, flow %, speed %, fan RPMs, storage info.
 - **Left-click**: opens the attached panel.
-- **Right-click**: context menu with Refresh action.
-- **Panel**: placeholder with "Open Web UI" button that launches the browser to `http://host:port`.
-- **Settings**: host, port, username, password (digest auth), refresh interval.
+- **Right-click**: context menu with Pause/Resume/Stop print, Refresh, Open Web UI, and Widget Settings actions.
+- **Panel**: full QML-based UI with printer status, job details (thumbnail, filename, progress bar, time info), temperature graphs with Y-axis scale, and job control buttons (Pause/Resume/Stop).
+- **Settings**: host, port, username, password (digest auth), and three refresh intervals — offline (default 10s), idle (default 2s), printing (default 1s) — dynamically switched based on printer state.
 
 ## Architecture
 
@@ -18,7 +18,7 @@ prusa-link/
   manifest.json    -- plugin metadata, entry points, default settings
   Main.qml         -- invisible root; polls GET /api/v1/status, exposes all fields as QML properties
   BarWidget.qml    -- bar capsule widget with state icon, progress text, hover tooltip
-  Panel.qml        -- attached panel (currently just opens browser)
+  Panel.qml        -- full QML panel with status, job info, temperature graphs, job controls
   Settings.qml     -- connection settings UI
 ```
 
@@ -26,7 +26,7 @@ prusa-link/
 
 - **Main.qml** is the single source of truth for printer state. All other components read from `pluginApi.mainInstance` properties.
 - **HTTP Digest auth** is handled by passing `username`/`password` as the 4th/5th arguments to `XMLHttpRequest.open(method, url, async, user, pass)` — the Qt network stack handles the challenge-response automatically.
-- **Polling interval** is user-configurable (default 10s). A single `Timer` in `Main.qml` drives all updates.
+ - **Polling interval** has three user-configurable values — offline (10s), idle (2s), printing (1s) — dynamically switched based on printer state. A single `Timer` in `Main.qml` drives all updates.
 - **Tooltip** uses `TooltipService.show(root, arrayOfArrays, direction)` per the Noctalia pattern. Each sub-array is `[label, value]`.
 
 ## PrusaLink API
@@ -60,11 +60,8 @@ prusa-link/
 - **Logging**: `Logger.e(tag, message)`, `Logger.w(...)`, `Logger.i(...)` — requires `import Quickshell`
 - **Exec**: `Quickshell.execDetached(["xdg-open", url])` for launching external processes
 
-## What's Next (Phase 2)
+## What's Next (Phase 2 — In Progress)
 
-1. **Embedded web UI in Panel**: replace the "Open Web UI" button with a `WebView` or `WebEngineView` that loads `http://host:port` directly in the attached panel, implementing the full PrusaLink web interface.
-2. **Printer control**: add context menu or panel actions for Stop/Pause/Resume job via the API (`DELETE /api/v1/job/{id}`, `PUT /api/v1/job/{id}/pause`, etc.)
-3. **Transfer status**: show upload progress when a file transfer is active (from the `transfer` object in the status response)
-4. **Camera**: integrate the camera snapshot endpoint (`GET /api/v1/cameras/snap`) into the panel
-5. **Error state handling**: show error details from the API when printer state is `ERROR` or `ATTENTION`
-6. **Notifications**: optional desktop notification when a print finishes or errors
+1. **~Printer control (done)~**: pause/resume/stop via `PUT/DELETE /api/v1/job/{id}/*` — implemented in panel header and context menu.
+2. **Print file browser**: QML-based file browser using `GET /api/v1/files/{storage}/{path}` to list, preview, and start prints.
+3. **Notifications**: optional desktop notification when a print finishes or errors.
