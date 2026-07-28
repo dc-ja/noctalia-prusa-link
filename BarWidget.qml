@@ -114,7 +114,29 @@ Item {
         id: contextMenu
         screen: root.screen
 
+        readonly property bool hasJob: mainInstance?.jobId >= 0
+        readonly property bool isPrinting: root.printerState === "PRINTING"
+        readonly property bool isPaused: root.printerState === "PAUSED"
+
         model: [
+            {
+                "label": "Pause print",
+                "action": "player-pause",
+                "icon": "pause",
+                "visible": contextMenu.isPrinting
+            },
+            {
+                "label": "Resume print",
+                "action": "player-play",
+                "icon": "play",
+                "visible": contextMenu.isPaused
+            },
+            {
+                "label": "Stop print",
+                "action": "stop",
+                "icon": "stop",
+                "visible": contextMenu.hasJob && (contextMenu.isPrinting || contextMenu.isPaused)
+            },
             {
                 "label": "Refresh",
                 "action": "refresh",
@@ -135,7 +157,13 @@ Item {
         onTriggered: (action, item) => {
             contextMenu.close();
             PanelService.closeContextMenu(root.screen);
-            if (action === "refresh") {
+            if (action === "pause") {
+                mainInstance?.pauseJob();
+            } else if (action === "resume") {
+                mainInstance?.resumeJob();
+            } else if (action === "stop") {
+                mainInstance?.stopJob();
+            } else if (action === "refresh") {
                 mainInstance?.refresh();
             } else if (action === "open_web_ui") {
                 const url = mainInstance?.baseUrl ?? "";

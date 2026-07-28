@@ -1,7 +1,7 @@
 {
   "id": "prusa-link",
   "name": "PrusaLink",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "minNoctaliaVersion": "4.7.7",
   "author": "dc-ja",
   "license": "MIT",
