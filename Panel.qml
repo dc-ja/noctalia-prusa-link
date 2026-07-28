@@ -358,10 +358,10 @@ Item {
                     Layout.fillWidth: true
                     maxValue: 300
                     unit: "°C"
-                    history1: mainInstance?.nozzleTempHistory ?? []
-                    history2: mainInstance?.nozzleTargetHistory ?? []
-                    color1: Color.mPrimary
-                    color2: Color.mVariant
+                    history1: mainInstance?.nozzleTargetHistory ?? []
+                    history2: mainInstance?.nozzleTempHistory ?? []
+                    color1: Color.mVariant
+                    color2: Color.mPrimary
                     refreshInterval: mainInstance?.currentRefreshIntervalSec * 1000 ?? 10000
                 }
 
@@ -375,10 +375,10 @@ Item {
                     Layout.fillWidth: true
                     maxValue: 120
                     unit: "°C"
-                    history1: mainInstance?.bedTempHistory ?? []
-                    history2: mainInstance?.bedTargetHistory ?? []
-                    color1: Color.mPrimary
-                    color2: Color.mVariant
+                    history1: mainInstance?.bedTargetHistory ?? []
+                    history2: mainInstance?.bedTempHistory ?? []
+                    color1: Color.mVariant
+                    color2: Color.mPrimary
                     refreshInterval: mainInstance?.currentRefreshIntervalSec * 1000 ?? 10000
                 }
             }
@@ -453,14 +453,14 @@ Item {
                     implicitWidth: yLabelText.implicitWidth + Style.marginXS * 2
                     implicitHeight: yLabelText.implicitHeight + 2
                     radius: Style.radiusXS
-                    color: Qt.alpha(graphWithAxisRoot.color1, 0.10)
+                    color: Qt.alpha(graphWithAxisRoot.color2, 0.10)
 
                     NText {
                         id: yLabelText
                         anchors.centerIn: parent
                         text: Math.round(modelData.value) + " " + graphWithAxisRoot.unit
                         pointSize: Style.fontSizeXS * 0.8
-                        color: Qt.alpha(graphWithAxisRoot.color1, 0.7)
+                        color: Qt.alpha(graphWithAxisRoot.color2, 0.7)
                     }
                 }
             }
