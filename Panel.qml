@@ -55,6 +55,42 @@ Item {
                     elide: Text.ElideRight
                 }
 
+                RowLayout {
+                    spacing: Style.marginXS
+
+                    readonly property bool hasJob: mainInstance?.jobId >= 0
+                    readonly property bool isPrinting: mainInstance?.printerState === "PRINTING"
+                    readonly property bool isPaused: mainInstance?.printerState === "PAUSED"
+
+                    NIconButton {
+                        icon: "player-pause"
+                        tooltipText: "Pause print"
+                        baseSize: Style.baseWidgetSize * 0.8
+                        visible: parent.isPrinting
+                        onClicked: mainInstance?.pauseJob()
+                    }
+
+                    NIconButton {
+                        icon: "player-play"
+                        tooltipText: "Resume print"
+                        baseSize: Style.baseWidgetSize * 0.8
+                        visible: parent.isPaused
+                        onClicked: mainInstance?.resumeJob()
+                    }
+
+                    NIconButton {
+                        icon: "stop"
+                        tooltipText: "Stop print"
+                        baseSize: Style.baseWidgetSize * 0.8
+                        visible: parent.hasJob && (parent.isPrinting || parent.isPaused)
+                        onClicked: mainInstance?.stopJob()
+                    }
+                }
+
+                Item {
+                    width: Style.marginS
+                }
+
                 NIconButton {
                     icon: "refresh"
                     tooltipText: "Refresh"

@@ -309,6 +309,34 @@ Item {
         root.fetchStatus();
     }
 
+    function __apiXHR(method, path, callback) {
+        if (!root) return;
+        const xhr = new XMLHttpRequest();
+        xhr.open(method, root.baseUrl + path, true, root.username, root.password);
+        xhr.timeout = 5000;
+        xhr.onreadystatechange = function () {
+            if (!root) return;
+            if (xhr.readyState !== XMLHttpRequest.DONE) return;
+            if (callback) callback(xhr.status, xhr.responseText);
+        };
+        xhr.send();
+    }
+
+    function pauseJob() {
+        if (root.jobId < 0) return;
+        root.__apiXHR("PUT", "/api/v1/job/" + root.jobId + "/pause");
+    }
+
+    function resumeJob() {
+        if (root.jobId < 0) return;
+        root.__apiXHR("PUT", "/api/v1/job/" + root.jobId + "/resume");
+    }
+
+    function stopJob() {
+        if (root.jobId < 0) return;
+        root.__apiXHR("DELETE", "/api/v1/job/" + root.jobId);
+    }
+
     /* ---------- helpers ---------- */
     function formatTime(seconds) {
         if (!seconds || seconds <= 0)
