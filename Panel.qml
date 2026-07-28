@@ -14,7 +14,6 @@ Item {
     readonly property var geometryPlaceholder: panelContainer
     readonly property bool allowAttach: true
     property real contentPreferredWidth: 600 * Style.uiScaleRatio
-    //property real contentPreferredHeight: 200 * Style.uiScaleRatio
     property real contentPreferredHeight: panelContainer.implicitHeight + 2 * Style.marginL
 
     anchors.fill: parent
@@ -341,6 +340,7 @@ Item {
         NBox {
             Layout.fillWidth: true
             implicitHeight: graphsColumn.implicitHeight + Style.margin2L
+            visible: mainInstance?.printerState !== "OFFLINE"
 
             ColumnLayout {
                 id: graphsColumn
