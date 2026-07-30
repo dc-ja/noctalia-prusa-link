@@ -468,8 +468,23 @@ Item {
                 anchors.margins: Style.marginL
                 spacing: Style.marginM
 
-                NText {
-                    text: "File Browser Placeholder"
+                NComboBox {
+                    id: storageCombo
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 300
+                    label: "Storage"
+                    placeholder: "No storage available"
+                    model: {
+                        const list = mainInstance?.storageList ?? [];
+                        if (list.length === 0) return [];
+                        return list.map(function(s) {
+                            return { key: s.path, name: s.path };
+                        });
+                    }
+                    currentKey: mainInstance?.selectedStoragePath ?? ""
+                    onSelected: function(key) {
+                        mainInstance.selectedStoragePath = key;
+                    }
                 }
             }
         }

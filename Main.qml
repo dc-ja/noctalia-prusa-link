@@ -58,6 +58,8 @@ Item {
 
     property string storageName: ""
     property bool storageReadOnly: false
+    property var storageList: []
+    property string selectedStoragePath: ""
 
     property int jobId: -1
     property real progress: 0
@@ -126,6 +128,7 @@ Item {
             if (!root.infoFetched) {
                 root.fetchInfo();
             }
+            root.fetchStorageList();
             try {
                 const data = JSON.parse(xhr.responseText);
                 root.updateFromPayload(data);
@@ -303,6 +306,40 @@ Item {
         };
 
         xhr.send();
+    }
+
+    function fetchStorageList() {
+        if (!root) return;
+        const xhr = new XMLHttpRequest();
+        xhr.open("GET", root.baseUrl + "/api/v1/storage", true, root.username, root.password);
+        xhr.timeout = 5000;
+
+        xhr.onreadystatechange = function () {
+            if (!root) return;
+            if (xhr.readyState !== XMLHttpRequest.DONE) return;
+            if (xhr.status !== 200) {
+                if (xhr.status !== 0) {
+                    Logger.e("prusa-link", "Storage list fetch failed (HTTP " + xhr.status + ")");
+                }
+                return;
+            }
+            try {
+                const data = JSON.parse(xhr.responseText);
+                const list = data.storage_list ?? [];
+                root.storageList = list;
+                if (root.selectedStoragePath === "" && list.length > 0) {
+                    root.selectedStoragePath = list[0].path;
+                }
+            } catch (e) {
+                Logger.e("prusa-link", "Failed to parse storage list:", e);
+            }
+        };
+
+        xhr.send();
+    }
+
+    function refreshStorageList() {
+        root.fetchStorageList();
     }
 
     function refresh() {
