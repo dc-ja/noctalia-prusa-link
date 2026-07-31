@@ -458,9 +458,16 @@ Item {
         }
 
         NBox {
+            id: storageBox
             Layout.fillWidth: true
-            implicitHeight: storageColumn.implicitHeight + Style.margin2L
+            implicitHeight: 360 * Style.uiScaleRatio
             visible: root.currentTab === 1
+
+            onVisibleChanged: {
+                if (visible && mainInstance?.selectedStoragePath) {
+                    mainInstance.fetchStorageFiles(mainInstance.selectedStoragePath);
+                }
+            }
 
             ColumnLayout {
                 id: storageColumn
@@ -478,12 +485,88 @@ Item {
                         const list = mainInstance?.storageList ?? [];
                         if (list.length === 0) return [];
                         return list.map(function(s) {
-                            return { key: s.path, name: s.path };
+                            return { key: s.path, name: s.path.replace(/\/$/, "") };
                         });
                     }
                     currentKey: mainInstance?.selectedStoragePath ?? ""
                     onSelected: function(key) {
                         mainInstance.selectedStoragePath = key;
+                        mainInstance.fetchStorageFiles(key);
+                    }
+                }
+
+                NBox {
+                    Layout.fillWidth: true
+                    implicitHeight: 300 * Style.uiScaleRatio
+
+                    ColumnLayout {
+                        id: fileListColumn
+                        anchors.fill: parent
+                        spacing: Style.marginS
+
+                        NText {
+                            visible: mainInstance?.storageLoading !== ""
+                            text: "Loading..."
+                            pointSize: Style.fontSizeS
+                            color: Color.mOnSurfaceVariant
+                        }
+
+                        NText {
+                            visible: mainInstance?.storageLoading === "" && (mainInstance?.storageListModel ?? []).length === 0
+                            text: "No files"
+                            pointSize: Style.fontSizeS
+                            color: Color.mOnSurfaceVariant
+                        }
+
+                        NListView {
+                            id: fileListView
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            model: mainInstance?.storageListModel ?? []
+                            spacing: Style.marginXS
+                            visible: (mainInstance?.storageListModel ?? []).length > 0
+
+                            delegate: Rectangle {
+                                id: fileItem
+                                required property int index
+                                required property var modelData
+
+                                width: fileListView.width - (fileListView.verticalScrollBarActive ? Style.marginM : 0)
+                                height: fileEntryRow.implicitHeight + Style.margin2S
+                                radius: Style.radiusS
+                                color: "transparent"
+
+                                RowLayout {
+                                    id: fileEntryRow
+                                    anchors.fill: parent
+                                    anchors.leftMargin: Style.marginS
+                                    anchors.rightMargin: Style.marginS
+                                    spacing: Style.marginS
+
+                                    NIcon {
+                                        icon: modelData.type === "FOLDER" ? "folder" : "file"
+                                        pointSize: Style.fontSizeXL
+                                        color: modelData.type === "FOLDER" ? Color.mPrimary : Color.mOnSurfaceVariant
+                                        Layout.alignment: Qt.AlignVCenter
+                                    }
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        Layout.alignment: Qt.AlignVCenter
+                                        spacing: Style.marginXXS
+
+                                        NText {
+                                            text: modelData.display_name ?? modelData.name
+                                            pointSize: Style.fontSizeS
+                                            font.weight: Style.fontWeightBold
+                                            color: Color.mOnSurface
+                                            elide: Text.ElideRight
+                                            Layout.fillWidth: true
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

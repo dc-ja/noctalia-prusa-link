@@ -60,6 +60,9 @@ Item {
     property bool storageReadOnly: false
     property var storageList: []
     property string selectedStoragePath: ""
+    property var storageFiles: []
+    property var storageListModel: []
+    property string storageLoading: ""
 
     property int jobId: -1
     property real progress: 0
@@ -340,6 +343,61 @@ Item {
 
     function refreshStorageList() {
         root.fetchStorageList();
+    }
+
+    function fetchStorageFiles(path) {
+        if (!root) return;
+        if (!path) path = root.selectedStoragePath;
+        if (!path) return;
+        root.storageLoading = path;
+        const storage = path.replace(/^\//, "");
+        const xhr = new XMLHttpRequest();
+        xhr.open("GET", root.baseUrl + "/api/v1/files/" + storage + "/", true, root.username, root.password);
+        xhr.timeout = 5000;
+        xhr.onreadystatechange = function () {
+            if (!root) return;
+            if (xhr.readyState !== XMLHttpRequest.DONE) return;
+            if (xhr.status !== 200) {
+                if (xhr.status !== 0) {
+                    Logger.e("prusa-link", "Storage files fetch failed (HTTP " + xhr.status + ")");
+                }
+                root.storageLoading = "";
+                return;
+            }
+            try {
+                const data = JSON.parse(xhr.responseText);
+                const children = data.children ?? [];
+                root.storageFiles = children;
+                const folders = [];
+                const files = [];
+                for (let i = 0; i < children.length; i++) {
+                    if (children[i].type === "FOLDER")
+                        folders.push(children[i]);
+                    else
+                        files.push(children[i]);
+                }
+                folders.sort(function(a, b) {
+                    const aName = (a.display_name ?? a.name).toLowerCase();
+                    const bName = (b.display_name ?? b.name).toLowerCase();
+                    return aName < bName ? -1 : aName > bName ? 1 : 0;
+                });
+                files.sort(function(a, b) {
+                    const aName = (a.display_name ?? a.name).toLowerCase();
+                    const bName = (b.display_name ?? b.name).toLowerCase();
+                    return aName < bName ? -1 : aName > bName ? 1 : 0;
+                });
+                const model = [];
+                for (let i = 0; i < folders.length; i++)
+                    model.push(folders[i]);
+                for (let i = 0; i < files.length; i++)
+                    model.push(files[i]);
+                root.storageListModel = model;
+            } catch (e) {
+                Logger.e("prusa-link", "Failed to parse storage files:", e);
+            }
+            root.storageLoading = "";
+        };
+        xhr.send();
     }
 
     function refresh() {
