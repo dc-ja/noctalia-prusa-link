@@ -432,7 +432,7 @@ Item {
                         unit: "°C"
                         history1: mainInstance?.nozzleTargetHistory ?? []
                         history2: mainInstance?.nozzleTempHistory ?? []
-                        color1: Color.mVariant
+                        color1: Color.mOutline
                         color2: Color.mPrimary
                         refreshInterval: mainInstance?.currentRefreshIntervalSec * 1000 ?? 10000
                     }
@@ -449,7 +449,7 @@ Item {
                         unit: "°C"
                         history1: mainInstance?.bedTargetHistory ?? []
                         history2: mainInstance?.bedTempHistory ?? []
-                        color1: Color.mVariant
+                        color1: Color.mOutline
                         color2: Color.mPrimary
                         refreshInterval: mainInstance?.currentRefreshIntervalSec * 1000 ?? 10000
                     }
