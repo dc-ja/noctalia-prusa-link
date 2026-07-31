@@ -63,6 +63,16 @@ Item {
     property var storageFiles: []
     property var storageListModel: []
     property string storageLoading: ""
+    property var currentPathStack: []
+    property var pathHistory: []
+    readonly property string currentPathDisplay: {
+        var parts = root.currentPathStack;
+        if (parts.length === 0) return "";
+        var display = "";
+        for (var i = 0; i < parts.length; i++)
+            display += "/" + (parts[i].display_name ?? parts[i].name);
+        return display;
+    }
 
     property int jobId: -1
     property real progress: 0
@@ -345,14 +355,27 @@ Item {
         root.fetchStorageList();
     }
 
-    function fetchStorageFiles(path) {
+   function fetchStorageFiles(pathStack) {
         if (!root) return;
-        if (!path) path = root.selectedStoragePath;
-        if (!path) return;
-        root.storageLoading = path;
-        const storage = path.replace(/^\//, "");
+        if (typeof pathStack === "string") {
+            if (!pathStack) return;
+            pathStack = [{ name: pathStack.replace(/^\//, "").replace(/\/$/, ""), display_name: pathStack.replace(/^\//, "").replace(/\/$/, "") }];
+        }
+        if (!pathStack || pathStack.length === 0) {
+            if (root.selectedStoragePath)
+                pathStack = [{ name: root.selectedStoragePath.replace(/^\//, "").replace(/\/$/, ""), display_name: root.selectedStoragePath.replace(/^\//, "").replace(/\/$/, "") }];
+            else
+                return;
+        }
+        const storage = pathStack[0]?.name;
+        if (!storage) return;
+        root.storageLoading = "1";
+        const subParts = [];
+        for (let i = 1; i < pathStack.length; i++)
+            subParts.push(pathStack[i].name);
+        const url = "/api/v1/files/" + storage + (subParts.length > 0 ? "/" + subParts.join("/") : "");
         const xhr = new XMLHttpRequest();
-        xhr.open("GET", root.baseUrl + "/api/v1/files/" + storage + "/", true, root.username, root.password);
+        xhr.open("GET", root.baseUrl + url, true, root.username, root.password);
         xhr.timeout = 5000;
         xhr.onreadystatechange = function () {
             if (!root) return;
@@ -364,6 +387,7 @@ Item {
                 root.storageLoading = "";
                 return;
             }
+            root.currentPathStack = pathStack;
             try {
                 const data = JSON.parse(xhr.responseText);
                 const children = data.children ?? [];
@@ -402,6 +426,23 @@ Item {
 
     function refresh() {
         root.fetchStatus();
+    }
+
+    function openDirectory(folderEntry) {
+        root.pathHistory.push(root.currentPathStack.slice());
+        const newStack = root.currentPathStack.slice();
+        newStack.push({ name: folderEntry.name, display_name: folderEntry.display_name ?? folderEntry.name });
+        root.fetchStorageFiles(newStack);
+    }
+
+    function goBack() {
+        if (root.pathHistory.length === 0) return;
+        root.fetchStorageFiles(root.pathHistory.pop());
+    }
+
+    function goRoot() {
+        root.pathHistory = [];
+        root.fetchStorageFiles(root.currentPathStack.slice(0, 1));
     }
 
     function __apiXHR(method, path, callback) {

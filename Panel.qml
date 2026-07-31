@@ -464,8 +464,11 @@ Item {
             visible: root.currentTab === 1
 
             onVisibleChanged: {
-                if (visible && mainInstance?.selectedStoragePath) {
-                    mainInstance.fetchStorageFiles(mainInstance.selectedStoragePath);
+                if (visible && mainInstance?.storageList?.length > 0) {
+                    const s = mainInstance.storageList[0];
+                    const name = s.path.replace(/^\//, "").replace(/\/$/, "");
+                    mainInstance.selectedStoragePath = s.path;
+                    mainInstance.fetchStorageFiles([{ name: name, display_name: s.display_name ?? name }]);
                 }
             }
 
@@ -491,13 +494,48 @@ Item {
                     currentKey: mainInstance?.selectedStoragePath ?? ""
                     onSelected: function(key) {
                         mainInstance.selectedStoragePath = key;
-                        mainInstance.fetchStorageFiles(key);
+                        const name = key.replace(/^\//, "").replace(/\/$/, "");
+                        mainInstance.fetchStorageFiles([{ name: name, display_name: name }]);
+                    }
+                }
+
+                RowLayout {
+                    id: pathRow
+                    Layout.fillWidth: true
+                    spacing: Style.marginXS
+                    visible: (mainInstance?.currentPathStack?.length ?? 0) > 1
+
+                    NIconButton {
+                        icon: "chevron-left"
+                        tooltipText: "Go back"
+                        baseSize: Style.baseWidgetSize * 0.6
+                        visible: mainInstance?.pathHistory?.length > 0
+                        onClicked: mainInstance.goBack()
+                    }
+
+                    NIconButton {
+                        icon: "chevron-up"
+                        tooltipText: "Go to root"
+                        baseSize: Style.baseWidgetSize * 0.6
+                        onClicked: mainInstance.goRoot()
+                    }
+
+                    NText {
+                        text: mainInstance?.currentPathDisplay ?? ""
+                        pointSize: Style.fontSizeXS
+                        color: Color.mOnSurfaceVariant
+                        elide: Text.ElideMiddle
+                        Layout.fillWidth: true
+                    }
+
+                    Item {
+                        Layout.fillWidth: true
                     }
                 }
 
                 NBox {
                     Layout.fillWidth: true
-                    implicitHeight: 300 * Style.uiScaleRatio
+                    Layout.fillHeight: true
 
                     ColumnLayout {
                         id: fileListColumn
@@ -534,7 +572,19 @@ Item {
                                 width: fileListView.width - (fileListView.verticalScrollBarActive ? Style.marginM : 0)
                                 height: fileEntryRow.implicitHeight + Style.margin2S
                                 radius: Style.radiusS
-                                color: "transparent"
+                                color: mouseArea.containsMouse ? Qt.alpha(Color.mPrimary, 0.08) : "transparent"
+
+                                MouseArea {
+                                    id: mouseArea
+                                    cursorShape: modelData.type === "FOLDER" ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    propagateComposedEvents: true
+                                    onClicked: {
+                                        if (modelData.type === "FOLDER")
+                                            mainInstance.openDirectory(modelData);
+                                    }
+                                }
 
                                 RowLayout {
                                     id: fileEntryRow
