@@ -4,7 +4,7 @@
 id          = "dc-ja/prusa-link"
 name        = "PrusaLink"
 version     = "0.7.0"
-plugin_api  = 22
+plugin_api  = 24
 author      = "dc-ja"
 license     = "MIT"
 icon        = "printer"
@@ -16,31 +16,11 @@ tags        = ["Bar", "3D Printing", "IoT"]
 # Labels/descriptions are translation keys resolved against translations/en.json.
 
 [[setting]]
-key             = "protocol"
-type            = "select"
-label_key       = "settings.protocol.label"
-description_key = "settings.protocol.description"
-default         = "https"
-options         = [
-  { value = "https", label_key = "settings.protocol.option_https" },
-  { value = "http",  label_key = "settings.protocol.option_http" },
-]
-
-[[setting]]
-key             = "host"
+key             = "url"
 type            = "string"
-label_key       = "settings.host.label"
-description_key = "settings.host.description"
+label_key       = "settings.url.label"
+description_key = "settings.url.description"
 default         = "" # empty = unconfigured; the service stays offline until set
-
-[[setting]]
-key             = "port"
-type            = "int"
-label_key       = "settings.port.label"
-description_key = "settings.port.description"
-default         = 80
-min             = 1
-max             = 65535
 
 [[setting]]
 key             = "username"
@@ -64,6 +44,7 @@ description_key = "settings.offline_refresh_sec.description"
 default         = 10
 min             = 1
 max             = 120
+advanced        = true
 
 [[setting]]
 key             = "idle_refresh_sec"
@@ -73,6 +54,7 @@ description_key = "settings.idle_refresh_sec.description"
 default         = 2
 min             = 1
 max             = 120
+advanced        = true
 
 [[setting]]
 key             = "printing_refresh_sec"
@@ -82,6 +64,7 @@ description_key = "settings.printing_refresh_sec.description"
 default         = 1
 min             = 1
 max             = 120
+advanced        = true
 
 # ── Entries ────────────────────────────────────────────────────────────────────
 # Addressed everywhere as "dc-ja/prusa-link:<id>" (noctalia.togglePanel,
