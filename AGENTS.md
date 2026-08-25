@@ -9,7 +9,7 @@ Bar widget that shows your Prusa printer state and print progress, powered by th
 - **Left-click**: opens the attached panel.
 - **Right-click**: unbound — Noctalia 5 bar widgets have no context-menu API, and `panel.openContextMenu()` only works inside an open panel. All printer actions live in the panel header.
 - **Panel**: full UI with printer status, job details (filename, progress bar, time info), temperature graphs, and job control buttons (Pause/Resume/Stop).
-- **Settings**: host, port, username, password (digest auth), and three refresh intervals — offline (default 10s), idle (default 2s), printing (default 1s) — dynamically switched based on printer state.
+- **Settings**: printer URL (one text field, e.g. `http://192.168.1.123` — scheme defaults to http, port to 80), username, password (digest auth), and three refresh intervals (marked advanced) — offline (default 10s), idle (default 2s), printing (default 1s) — dynamically switched based on printer state.
 
 ## Architecture (Noctalia 5 — Lua)
 
@@ -28,7 +28,7 @@ prusa-link/
 ### Key Design Decisions
 
 - **service.luau** is the single source of truth for printer state. Widget and panel read from `noctalia.state` keys.
-- **HTTP Digest auth**: pass `basic_username`/`basic_password` to `noctalia.http()`. If the Qt stack handles digest automatically, no extra work needed. Otherwise, `lib/http.luau` wraps the digest challenge-response (401 nonce → compute response → retry) so the rest of the code calls a simple `http.get(baseUrl, path)`.
+- **HTTP Digest auth**: live-tested — Noctalia's `noctalia.http` does not answer digest challenges, and `HttpResponse` exposes no headers to do it ourselves, while the printer rejects Basic outright. `lib/http.luau` therefore falls back to a `curl --digest` bridge via the argv-table form of `noctalia.runAsync` (requires `plugin_api = 24`) whenever the native path returns 401, remembering the choice per printer. Callers keep a simple `http.request()` interface.
 - **Polling interval** has three user-configurable values — offline (10s), idle (2s), printing (1s) — dynamically switched based on printer state. The service calls `noctalia.setUpdateInterval(ms)` each `update()` tick.
 - **Bar widget** uses the imperative API: `barWidget.setGlyph()`, `barWidget.setText()`, `barWidget.setTooltip()`.
 - **Panel** uses declarative `ui.*` tree via `panel.render()`. Layout: `width = 600`, `height = 640`, `placement = "attached"` — fixed height because `"fill"` requires `placement = "floating"`; content wraps in `ui.scroll` so it survives smaller outputs.
@@ -55,7 +55,7 @@ prusa-link/
 ## Noctalia 5 Plugin Conventions
 
 - **Framework**: Luau (Lua with types), running under Noctalia Shell 5
-- **Plugin API**: level 22 (target — lowest level covering our features: `require` modules at 22, timezone-aware `formatTime` at 19, UI closures at 9; latest available is 28)
+- **Plugin API**: level 24 (require modules at 22, timezone-aware `formatTime` at 19, UI closures at 9, plus argv-table `runAsync` at 24 for the curl digest bridge; latest available is 28)
 - **Manifest**: `plugin.toml` — TOML format, declares entries and settings schema
 - **Settings**: `[[setting]]` at manifest root. Types: `string`, `int`, `double`, `bool`, `select`, `file`, `folder`, `string_map`. Labels via `label_key` pointing to `translations/<lang>.json`.
 - **State sharing**: `noctalia.state.set(key, value)`, `noctalia.state.get(key)`, `noctalia.state.watch(key, fn)` — in-memory only, process-lifetime

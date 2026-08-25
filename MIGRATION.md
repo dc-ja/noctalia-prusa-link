@@ -40,17 +40,16 @@ watch via `noctalia.state.watch()` and render.
 
 **Files**: create `plugin.toml`, `translations/en.json`
 
-Port all 8 settings from `manifest.json.metadata.defaultSettings` to `[[setting]]`
-entries in `plugin.toml`. Every setting gets a `label_key` and `description_key`
-pointing to `translations/en.json`.
+Port the connection and polling settings to `[[setting]]` entries in
+`plugin.toml` — six fields after unifying protocol/host/port into one `url`
+input. Every setting gets a `label_key` and `description_key` pointing to
+`translations/en.json`.
 
 Settings to declare (plugin-level, `[[setting]]`):
 
 | Key | Type | Default | Constraints |
 |-----|------|---------|-------------|
-| `protocol` | `select` | `"https"` | `options = [{value="https", label_key=...}, {value="http", label_key=...}]` |
-| `host` | `string` | `""` | empty = unconfigured (printers almost never live on localhost) |
-| `port` | `int` | `80` | `min = 1, max = 65535`; 80 = plain-HTTP default |
+| `url` | `string` | `""` | single address field: `[https://]host[:port]`; scheme defaults to http, port to 80; empty = unconfigured |
 | `username` | `string` | `"maker"` | |
 | `password` | `string` | `""` | |
 | `offline_refresh_sec` | `int` | `10` | `min = 1, max = 120` |
@@ -64,22 +63,21 @@ addressed as `<author>/prusa-link:<entry-id>` everywhere (`noctalia.togglePanel`
 
 Declare three entry stubs: `[[service]]`, `[[widget]]`, `[[panel]]`.
 Bump `version` (breaking rewrite; strict `MAJOR.MINOR.PATCH`). Set
-`plugin_api = 22` — the lowest level covering everything this plugin uses
-(`require` modules at 22, timezone-aware `formatTime` at 19, UI closures at 9).
-Context menus are dropped entirely, so 28's `panel.openContextMenu` is not
-needed and 22 keeps the plugin installable on older Noctalia v5 builds. 22 is
-the target, not a hard constraint — bump deliberately if some future capability
-earns it.
+`plugin_api = 24`: 22 covered `require` modules, timezone-aware `formatTime`
+(19) and UI closures (9); the curl digest bridge additionally needs the
+argv-table form of `runAsync` (24). Context menus are dropped entirely, so
+28's `panel.openContextMenu` stays unused. 24 is the target, not a hard
+constraint — bump deliberately if some future capability earns it.
 
 Remove `manifest.json`.
 
 Setting notes: there is no secret/password type — credentials are a plain
-`string` setting (consider `advanced = true` for the password). The v5 settings
-GUI is host-rendered per key; users re-enter values once after migrating.
-Defaults intentionally deviate from v4: `host` ships **empty** and `port` at
-**80** (v4 had `127.0.0.1:8080`) — a printer is almost always another machine on
-the network, and an untouched install should sit clearly "unconfigured" instead
-of silently probing localhost.
+`string` setting. The v5 settings GUI is host-rendered per key; users re-enter
+values once after migrating. Protocol/host/port are unified into a single
+`url` text input (scheme defaults to http, port to 80) — less cumbersome in
+the settings window, and the default ships empty so an untouched install sits
+clearly "unconfigured" instead of silently probing localhost. The three
+refresh intervals are marked `advanced`.
 
 **Why first**: the manifest is the foundation — without it, no entry can load.
 
@@ -92,9 +90,10 @@ of silently probing localhost.
 Implement the background polling loop that replaces `Main.qml`.
 
 - Read settings via `noctalia.getConfig("host")`, etc.
-- Build `baseUrl = protocol .. "://" .. host .. ":" .. port` (omit `:port` when
-  it equals the protocol default — 80 for http, 443 for https — so "Open Web UI"
-  gets a clean URL).
+- Parse the `url` setting with `http.parseTarget()`: accepts
+  `[https://]host[:port]`, defaults the scheme to http and the port to 80/443,
+  tolerates whitespace and trailing slashes; `baseUrl` omits default ports so
+  "Open Web UI" gets a clean URL.
 - Unconfigured guard: when `host` is empty (the default), skip all HTTP work,
   publish `connected = false` / `"printer_state" = "OFFLINE"`, and hold the
   offline refresh interval until the user configures a host.
@@ -134,7 +133,8 @@ Implement the background polling loop that replaces `Main.qml`.
 - There is **no timeout option** (v4 used XHR timeouts of 2–5 s). Track an
   in-flight flag and skip the next poll until the callback fires, so one hung
   request cannot stack up requests (also keeps under the ≤ 8 concurrent HTTP
-  requests per runtime cap).
+  requests per runtime cap). The curl bridge restores true timeouts via
+  `curl -m`.
 - TLS: whether PrusaLink's HTTPS endpoint presents a self-signed certificate is
   UNVERIFIED — the OpenAPI spec is silent on transport, so settle this in the
   Step 2 spike against the real printer. Do not blanket-disable verification on
@@ -142,25 +142,35 @@ Implement the background polling loop that replaces `Main.qml`.
   certificate error, either retry once with `allow_insecure_tls = true` (option
   exists since API level 7) or expose it as an explicit user setting.
 
-**Digest auth — de-risk FIRST (spike before writing lib/http.luau)**: the
-PrusaLink OpenAPI spec declares `security: digestAuth` (`scheme: digest`) only.
-The v5 request fields are named `basic_username` / `basic_password`, which smells
-like Basic-only support — the QML version worked because Qt's network stack
-answered digest challenges transparently, and v5 may not. Spike order:
+**Digest auth — SPIKED, plus one hard constraint**:
 
-1. Call a real printer with
-   `noctalia.http({ url = ..., basic_username = ..., basic_password = ... })`.
-   A 200 means the host solved digest — done, no wrapper needed.
-2. On 401, implement the RFC 2617/7616 challenge-response inside `lib/http.luau`
-   (a `require` module shared by service/widget/panel): send one unauthenticated
-   GET, parse `WWW-Authenticate` (`realm`, `nonce`, `qop`, `algorithm`,
-   `opaque`), compute `response = MD5(HA1:nonce:nc:cnonce:qop:HA2)`, retry with
-   `Authorization: Digest ...`, cache HA1/nonce between calls.
-   Luau ships **no crypto or base64 builtins**, so budget for a pure-Luau MD5
-   implementation and derive `cnonce` from `math.random` + `noctalia.nowMs()`.
+Server side, verified by curl against the real printer (PrusaLink server
+2.1.2): unauthenticated requests get `401` with
+`WWW-Authenticate: Digest realm="Printer API", nonce="…", stale=false`
+(digest-only, no `qop` offered); **Basic is rejected outright** (`401`);
+proper digest → `200`. Authentication therefore depends entirely on the
+client answering the challenge.
 
-Keep the digest logic entirely inside the module — callers use something like
-`http.get(baseUrl, path)` and receive `{ ok, status, body }`.
+Client side, hard constraint: Noctalia's `HttpResponse` is
+`{ ok, status, body }` — **response headers are not exposed**, so the
+`WWW-Authenticate` parameters (nonce, realm, qop) are unreadable and a
+client-side RFC 2617/7616 handshake cannot be implemented through the
+documented plugin API. `lib/http.luau` therefore forwards
+`basic_username` / `basic_password` and relies on the host solving the
+digest handshake — exactly how the QML version relied on Qt.
+
+Verification happens live once the service runs: a `200` on the first poll
+means the host answered the challenge and we are done. Persistent `401`s mean
+it does not — escalation options: check firmware settings for alternate auth,
+file an upstream Noctalia issue asking for `HttpResponse` headers, or bridge
+through `noctalia.runAsync("curl --digest …")` as a last resort.
+
+OUTCOME (live-verified): persistent `HTTP 401`s — the host does NOT answer
+challenges. Went with the bridge (option c): `lib/http.luau` retries through
+`curl --digest` via the argv-table `runAsync` form on any native 401,
+remembers the switch per origin for the session, captures the HTTP status
+with `curl -w`, and gains real timeouts via `curl -m`. Requires
+`plugin_api = 24`.
 
 **Temp history — simplify on purpose**: do NOT port the 0.1 s interpolation from
 `Main.qml:496-549` (1800-point arrays existed to keep the custom QML canvas smooth
@@ -349,10 +359,10 @@ of the status tab.
     counting as the printing rate.
   - After a disconnect/reconnect: `/api/v1/info` is refetched and stale temp
     history doesn't leak across sessions.
-  - Digest auth verified against the real printer (Step 2 spike outcome);
-    HTTPS mode tested — if the printer's certificate fails validation, the
-    `allow_insecure_tls` fallback handles it (and the chosen strategy — retry
-    or setting — is recorded here).
+  - Auth verified against the real printer: native 401 → automatic curl-digest
+    bridge → 200 (switch remembered per origin for the session).
+  - HTTPS mode tested; certificate-failure handling recorded (native
+    `allow_insecure_tls` fallback / bridge `-k` retry).
   - Widget text is correct for READY / BUSY / FINISHED / STOPPED printers —
     not "Offline".
   - Vertical bars: layout branches on `barWidget.isVertical()` where needed.
