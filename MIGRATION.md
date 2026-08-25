@@ -251,7 +251,9 @@ Implement the popup panel with the status tab only (no storage yet).
 - Watch state keys and re-render on changes.
 - Tab switching: there is no `ui.tabs` control in the declarative vocabulary —
   use a local `currentTab` plus per-section `visible` flags (every node accepts
-  `visible`). The Step 5 approach is right; just note it here too.
+  `visible`). The Step 5 approach is right; just note it here too. Segmented
+  full-width buttons stand in for tabs; swap them for a native control once
+  the shell ships one (v5 is beta).
 - Time formatting: prefer `noctalia.formatTime(pattern, unixSeconds)` plus
   `dateFormat()` / `timeFormat()` (API ≥ 19) over porting the QML `Qt.locale()`
   helpers from `Main.qml:551-588`.
@@ -331,6 +333,8 @@ of the status tab.
 **Files**: remove old files, verify everything works
 
 - Remove: `manifest.json`, `Main.qml`, `BarWidget.qml`, `Panel.qml`, `Settings.qml`.
+  Once Steps 1–5 are verified working, drop `MIGRATION.md` itself — its durable
+  facts (state-key table, deferred-API list) already live in `AGENTS.md`.
   The pre-migration tree is preserved on the `legacy-noctalia-v4` branch —
   confirm that branch is pushed before deleting anything.
 - Keep: `AGENTS.md` — updated alongside this plan (context-menu claims removed,

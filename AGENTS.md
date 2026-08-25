@@ -34,7 +34,68 @@ prusa-link/
 - **Panel** uses declarative `ui.*` tree via `panel.render()`. Layout: `width = 600`, `height = 640`, `placement = "attached"` — fixed height because `"fill"` requires `placement = "floating"`; content wraps in `ui.scroll` so it survives smaller outputs.
 - **No context menu**: Noctalia 5's `barWidget.*` namespace has no menu API (`panel.openContextMenu()` only works from inside an open panel), so the v4-style widget right-click menu is dropped; job controls (Pause/Resume/Stop) live in the panel header. Users can bind their own gestures per widget instance in Noctalia's widget settings.
 - **Settings** are declared in `plugin.toml` as `[[setting]]` entries. The host renders the settings UI automatically. Labels/descriptions use translation keys in `translations/en.json`.
-- **State keys** use snake_case. See `MIGRATION.md` for the full key convention.
+- **State keys** use snake_case; the full table lives under State keys below.
+
+## State keys
+
+All `noctalia.state` keys use snake_case and are published by the service
+(`service.luau`); the widget and panel watch them. Full table:
+
+| `connected` | bool | Whether the last HTTP call succeeded |
+| `error` | string | Last transport/HTTP error description (empty when healthy) |
+| `printer_state` | string | `"OFFLINE"` / `"IDLE"` / `"PRINTING"` / etc. |
+| `temp_nozzle` | number | Current nozzle temperature (°C) |
+| `target_nozzle` | number | Target nozzle temperature (°C) |
+| `temp_bed` | number | Current bed temperature (°C) |
+| `target_bed` | number | Target bed temperature (°C) |
+| `axis_z` | number | Z-axis height (mm) |
+| `flow` | int | Flow speed percentage |
+| `speed` | int | Print speed percentage |
+| `fan_hotend` | int | Hotend fan RPM |
+| `fan_print` | int | Print fan RPM |
+| `storage_name` | string | Active storage name from `/api/v1/status` (feeds tooltip row) |
+| `storage_read_only` | bool | Drives the tooltip's "(read-only)" suffix |
+| `job_id` | int | Current job ID (-1 if none) |
+| `progress` | number | Print progress 0–100 |
+| `time_remaining` | int | Seconds remaining |
+| `time_printing` | int | Seconds of print time elapsed |
+| `info` | table | Printer info (name, hostname, nozzle diameter, etc.) |
+| `job` | table | `/api/v1/job` payload: `state`, `file.name`, `file.display_name`, `file.refs.icon`, `file.refs.thumbnail`, `file.m_timestamp`, `file.size` |
+| `nozzle_temp_history` | number[] | Raw nozzle temp history (one sample per poll, capped ~240) |
+| `nozzle_target_history` | number[] | Raw nozzle target history (same sampling) |
+| `bed_temp_history` | number[] | Raw bed temp history (same sampling) |
+| `bed_target_history` | number[] | Raw bed target history (same sampling) |
+| `storage_list` | table[] | Available storage devices |
+| `selected_storage` | string | Selected storage path |
+| `storage_files` | table[] | Current directory listing |
+
+## Deferred — waiting on the Noctalia API
+
+Noctalia v5 is beta; these papercuts are parked until the plugin API grows the
+missing primitives. Revisit whenever a new `plugin_api` level ships:
+
+- **Scroll viewport inset** — the panel's scrolling region renders a touch
+  narrower than the header and tab row even though the scroller's padding is
+  pinned to 0. Suspected scrollbar gutter or default viewport inset inside the
+  host's `ui.scroll`; no plugin-side prop reaches it. Re-test on newer shells,
+  otherwise file upstream.
+- **Native tab control** — panel Status/Storage use segmented full-width
+  buttons (`selected` + `flexGrow = 1`). Swap for `ui.tabs` (or equivalent)
+  the moment the declarative vocabulary ships one.
+- **Bar-widget context menu** — dropped in the migration because `barWidget.*`
+  has no menu API (`panel.openContextMenu` is panel-only). If widget-level
+  menus ever land, restore quick pause/resume/stop from the pill.
+- **Digest without the curl bridge** — auth currently falls back to
+  `curl --digest` via argv-table `runAsync` (hence `plugin_api = 24`) because
+  `HttpResponse` hides response headers. If headers are exposed upstream,
+  answer the challenge natively in `lib/http.luau` and drop the curl
+  dependency.
+- **Job thumbnails** — `ui.image` accepts local paths only, so the v4 job
+  image was cut. Implementable today by downloading `refs.icon`/
+  `refs.thumbnail` through the http wrapper into `noctalia.pluginDataDir()`;
+  if `ui.image` later grows data-URI support that drops the temp file.
+  Remote sources would NOT help — printer images need digest auth, which an
+  image loader is unlikely to gain.
 
 ## PrusaLink API
 
