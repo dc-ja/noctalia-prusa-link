@@ -1,0 +1,103 @@
+# PrusaLink — Noctalia Shell plugin (Noctalia 5, Luau)
+# Manifest reference: https://docs.noctalia.dev/noctalia/plugins/development/manifest/
+
+id          = "dc-ja/prusa-link"
+name        = "PrusaLink"
+version     = "0.7.0"
+plugin_api  = 22
+author      = "dc-ja"
+license     = "MIT"
+icon        = "printer"
+description = "Shows your Prusa printer's live state and print progress on the bar, with a status panel, temperature graphs, storage browser and job controls."
+tags        = ["Bar", "3D Printing", "IoT"]
+
+# ── Plugin-level settings ──────────────────────────────────────────────────────
+# Shared by every entry; edited under Settings → Plugins.
+# Labels/descriptions are translation keys resolved against translations/en.json.
+
+[[setting]]
+key             = "protocol"
+type            = "select"
+label_key       = "settings.protocol.label"
+description_key = "settings.protocol.description"
+default         = "https"
+options         = [
+  { value = "https", label_key = "settings.protocol.option_https" },
+  { value = "http",  label_key = "settings.protocol.option_http" },
+]
+
+[[setting]]
+key             = "host"
+type            = "string"
+label_key       = "settings.host.label"
+description_key = "settings.host.description"
+default         = "" # empty = unconfigured; the service stays offline until set
+
+[[setting]]
+key             = "port"
+type            = "int"
+label_key       = "settings.port.label"
+description_key = "settings.port.description"
+default         = 80
+min             = 1
+max             = 65535
+
+[[setting]]
+key             = "username"
+type            = "string"
+label_key       = "settings.username.label"
+description_key = "settings.username.description"
+default         = "maker"
+
+[[setting]]
+key             = "password"
+type            = "string"
+label_key       = "settings.password.label"
+description_key = "settings.password.description"
+default         = ""
+
+[[setting]]
+key             = "offline_refresh_sec"
+type            = "int"
+label_key       = "settings.offline_refresh_sec.label"
+description_key = "settings.offline_refresh_sec.description"
+default         = 10
+min             = 1
+max             = 120
+
+[[setting]]
+key             = "idle_refresh_sec"
+type            = "int"
+label_key       = "settings.idle_refresh_sec.label"
+description_key = "settings.idle_refresh_sec.description"
+default         = 2
+min             = 1
+max             = 120
+
+[[setting]]
+key             = "printing_refresh_sec"
+type            = "int"
+label_key       = "settings.printing_refresh_sec.label"
+description_key = "settings.printing_refresh_sec.description"
+default         = 1
+min             = 1
+max             = 120
+
+# ── Entries ────────────────────────────────────────────────────────────────────
+# Addressed everywhere as "dc-ja/prusa-link:<id>" (noctalia.togglePanel,
+# noctalia msg plugin dc-ja/prusa-link:<id> ..., panel-toggle).
+
+[[service]]
+id    = "service"
+entry = "service.luau"
+
+[[widget]]
+id    = "widget"
+entry = "widget.luau"
+
+[[panel]]
+id        = "panel"
+entry     = "panel.luau"
+width     = 600
+height    = 640
+placement = "attached"

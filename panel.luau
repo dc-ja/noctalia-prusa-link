@@ -1,0 +1,3 @@
+--!nonstrict
+-- PrusaLink panel — status tab, storage tab, temperature graphs, job controls.
+-- Rendered via panel.render() in onOpen(context); implemented in MIGRATION.md Steps 4–5.

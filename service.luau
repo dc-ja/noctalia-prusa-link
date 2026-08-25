@@ -1,0 +1,4 @@
+--!nonstrict
+-- PrusaLink service — background polling of the PrusaLink API.
+-- Publishes printer/job/storage data via noctalia.state for the widget and panel.
+-- Implemented in MIGRATION.md Step 2.

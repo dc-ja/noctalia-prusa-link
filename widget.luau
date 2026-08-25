@@ -1,0 +1,3 @@
+--!nonstrict
+-- PrusaLink bar widget — glyph + text + tooltip driven by noctalia.state.
+-- Implemented in MIGRATION.md Step 3.

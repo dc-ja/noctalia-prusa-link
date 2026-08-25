@@ -135,8 +135,12 @@ Implement the background polling loop that replaces `Main.qml`.
   in-flight flag and skip the next poll until the callback fires, so one hung
   request cannot stack up requests (also keeps under the ≤ 8 concurrent HTTP
   requests per runtime cap).
-- Pass `allow_insecure_tls = true` whenever `protocol == "https"` — PrusaLink
-  serves self-signed certificates (option exists since API level 7).
+- TLS: whether PrusaLink's HTTPS endpoint presents a self-signed certificate is
+  UNVERIFIED — the OpenAPI spec is silent on transport, so settle this in the
+  Step 2 spike against the real printer. Do not blanket-disable verification on
+  an assumption: try strict TLS first; if a request fails with a transport-level
+  certificate error, either retry once with `allow_insecure_tls = true` (option
+  exists since API level 7) or expose it as an explicit user setting.
 
 **Digest auth — de-risk FIRST (spike before writing lib/http.luau)**: the
 PrusaLink OpenAPI spec declares `security: digestAuth` (`scheme: digest`) only.
@@ -346,7 +350,9 @@ of the status tab.
   - After a disconnect/reconnect: `/api/v1/info` is refetched and stale temp
     history doesn't leak across sessions.
   - Digest auth verified against the real printer (Step 2 spike outcome);
-    HTTPS mode works against self-signed certs (`allow_insecure_tls`).
+    HTTPS mode tested — if the printer's certificate fails validation, the
+    `allow_insecure_tls` fallback handles it (and the chosen strategy — retry
+    or setting — is recorded here).
   - Widget text is correct for READY / BUSY / FINISHED / STOPPED printers —
     not "Offline".
   - Vertical bars: layout branches on `barWidget.isVertical()` where needed.

@@ -1,0 +1,20 @@
+{
+  "settings.protocol.label": "Protocol",
+  "settings.protocol.description": "HTTP or HTTPS.",
+  "settings.protocol.option_https": "HTTPS",
+  "settings.protocol.option_http": "HTTP",
+  "settings.host.label": "Host",
+  "settings.host.description": "Hostname or IP address of the printer. Leave empty to disable the plugin.",
+  "settings.port.label": "Port",
+  "settings.port.description": "HTTP port of the PrusaLink web interface.",
+  "settings.username.label": "Username",
+  "settings.username.description": "PrusaLink account username.",
+  "settings.password.label": "Password",
+  "settings.password.description": "PrusaLink password (HTTP digest authentication).",
+  "settings.offline_refresh_sec.label": "Interval — offline",
+  "settings.offline_refresh_sec.description": "Seconds between polls while the printer is unreachable.",
+  "settings.idle_refresh_sec.label": "Interval — idle",
+  "settings.idle_refresh_sec.description": "Seconds between polls while the printer is on but not printing.",
+  "settings.printing_refresh_sec.label": "Interval — printing",
+  "settings.printing_refresh_sec.description": "Seconds between polls while a print job is running."
+}
