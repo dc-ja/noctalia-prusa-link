@@ -217,15 +217,30 @@ local function normalize(values, maxValue)
 end
 
 local function graphBlock(title, actualHist, targetHist, maxValue)
+  -- Scale labels ride in a rail beside the plot (justify spreads them over
+  -- the exact 0..max span). True interior gridlines need upstream support —
+  -- see the deferred list in AGENTS.md.
+  local ticks = {}
+  for i = 0, 4 do -- top -> bottom: max, 3/4, 1/2, 1/4, 0
+    ticks[#ticks + 1] = ui.label({
+      text = string.format("%.0f", maxValue * (1 - i / 4)),
+      fontSize = 9,
+      color = "on_surface_variant",
+    })
+  end
   return ui.column({ gap = 4, align = "stretch" }, {
     ui.label({ text = title, fontSize = 11, color = "on_surface_variant" }),
-    ui.graph({
-      values = normalize(actualHist, maxValue),
-      values2 = normalize(targetHist, maxValue),
-      color = "outline",
-      color2 = "primary",
-      height = 90,
-      fillOpacity = 0.15,
+    ui.row({ gap = 6, align = "stretch" }, {
+      ui.graph({
+        values = normalize(actualHist, maxValue),
+        values2 = normalize(targetHist, maxValue),
+        color = "outline",
+        color2 = "primary",
+        height = 90,
+        fillOpacity = 0.15,
+        flexGrow = 1,
+      }),
+      ui.column({ width = 20, height = 90, justify = "space_between", align = "start" }, ticks),
     }),
   })
 end

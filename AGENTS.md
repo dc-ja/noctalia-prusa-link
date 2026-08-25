@@ -96,6 +96,12 @@ missing primitives. Revisit whenever a new `plugin_api` level ships:
   if `ui.image` later grows data-URI support that drops the temp file.
   Remote sources would NOT help — printer images need digest auth, which an
   image loader is unlikely to gain.
+- **Graph axes/gridlines** — no way today to draw reference lines or scale
+  ticks over a `ui.graph`: the two-series cap consumes actual + target, and
+  the declarative vocabulary has no overlay/z-order placement. A labelled
+  side rail (see `panel.luau` `graphBlock`) fakes the labels; real gridlines
+  need an upstream `gridLines`/axis prop on `ui.graph` or a lifted series
+  cap.
 
 ## PrusaLink API
 
