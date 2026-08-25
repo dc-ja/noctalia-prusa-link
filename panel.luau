@@ -1,12 +1,12 @@
 --!nonstrict
 --[[
-  PrusaLink panel — status tab (MIGRATION.md Step 4).
+  PrusaLink panel — status tab (Step 4) + storage browser (Step 5).
 
-  Attached panel, 600x640 (manifest): header with job controls, status
-  property grid, active-job card and dual temperature graphs normalised to
-  the v4 scale (nozzle 300 °C, bed 120 °C). Job control talks to the
-  printer directly through lib/http.luau (which transparently bridges
-  digest auth). Storage tab lands in Step 5.
+  Attached panel, 600x640 (manifest): segmented Status/Storage tabs over a
+  scroll-clipped body; header carries job controls that talk to the printer
+  directly through lib/http.luau (inheriting the curl digest bridge).
+  Temperature graphs normalise history against the v4 scale (300/120 degC)
+  with a labelled tick rail beside each plot.
 ]]
 
 local http = require("./lib/http.luau")
@@ -18,6 +18,16 @@ local isOpen = false
 local currentTab = 0 -- 0 = status, 1 = storage
 local actionError = ""
 
+-- Storage-browser state (ephemeral, panel-owned; the service only publishes
+-- the storage list and a default selection — picker choices stay local).
+local chosenStorage = nil
+local relPath = {}     -- folder names below the storage root
+local pathHistory = {} -- stack of previous relPath copies for Back
+local dirEntries = {}  -- sorted children of the current directory
+local dirLoading = ""
+local dirError = ""
+local lastLoadedKey = nil
+
 local WATCHED = {
   "connected", "error", "printer_state", "progress",
   "time_remaining", "time_printing",
@@ -26,6 +36,7 @@ local WATCHED = {
   "info", "job_id", "job",
   "nozzle_temp_history", "nozzle_target_history",
   "bed_temp_history", "bed_target_history",
+  "storage_list", "selected_storage",
 }
 
 local STATE_LABELS = {
@@ -34,62 +45,36 @@ local STATE_LABELS = {
   ERROR = "Error", ATTENTION = "Attention",
 }
 
-local function roleFor(state)
-  if state == "ERROR" or state == "ATTENTION" then
-    return "error"
-  end
-  if state == "PRINTING" or state == "PAUSED" or state == "FINISHED" then
-    return "primary"
-  end
-  return "on_surface_variant"
-end
-
 -- ------------------------------------------------------------ formatting
 
 local function fmtTime(seconds)
   seconds = tonumber(seconds) or 0
-  if seconds <= 0 then
-    return "--:--"
-  end
+  if seconds <= 0 then return "--:--" end
   local h = math.floor(seconds / 3600)
   local m = math.floor((seconds % 3600) / 60)
   local s = math.floor(seconds % 60)
-  if h > 0 then
-    return string.format("%dh %02dm", h, m)
-  end
+  if h > 0 then return string.format("%dh %02dm", h, m) end
   return string.format("%dm %02ds", m, s)
 end
 
 local function fmtFan(rpm)
   rpm = tonumber(rpm) or 0
-  if rpm <= 0 then
-    return "0 RPM"
-  end
-  if rpm >= 1000 then
-    return string.format("%.1fk RPM", rpm / 1000)
-  end
+  if rpm <= 0 then return "0 RPM" end
+  if rpm >= 1000 then return string.format("%.1fk RPM", rpm / 1000) end
   return string.format("%d RPM", rpm)
 end
 
 local function fmtSize(bytes)
   bytes = tonumber(bytes) or 0
-  if bytes <= 0 then
-    return "--"
-  end
-  if bytes >= 1048576 then
-    return string.format("%.1f MiB", bytes / 1048576)
-  end
-  if bytes >= 1024 then
-    return string.format("%.1f KiB", bytes / 1024)
-  end
+  if bytes <= 0 then return "--" end
+  if bytes >= 1048576 then return string.format("%.1f MiB", bytes / 1048576) end
+  if bytes >= 1024 then return string.format("%.1f KiB", bytes / 1024) end
   return string.format("%d B", bytes)
 end
 
 local function fmtEndTime(secondsRemaining)
   secondsRemaining = tonumber(secondsRemaining) or 0
-  if secondsRemaining <= 0 then
-    return "--:--"
-  end
+  if secondsRemaining <= 0 then return "--:--" end
   local endT = os.date("*t", os.time() + math.floor(secondsRemaining))
   local nowT = os.date("*t")
   local hhmm = string.format("%02d:%02d", endT.hour, endT.min)
@@ -105,20 +90,33 @@ end
 
 local function fmtModified(ts)
   ts = tonumber(ts) or 0
-  if ts <= 0 then
-    return "--"
-  end
+  if ts <= 0 then return "--" end
   return os.date("%Y-%m-%d %H:%M", ts)
 end
 
+local function roleFor(state)
+  if state == "ERROR" or state == "ATTENTION" then return "error" end
+  if state == "PRINTING" or state == "PAUSED" or state == "FINISHED" then return "primary" end
+  return "on_surface_variant"
+end
+
 -- -------------------------------------------------------------- plumbing
+
+local renderPanel -- forward declaration
 
 local function targetBase()
   local t = http.parseTarget(noctalia.getConfig("url") or "")
   return t and t.base or ""
 end
 
-local renderPanel -- forward declaration
+local function apiGet(path, cb)
+  http.request({
+    url = targetBase() .. path,
+    method = "GET",
+    username = noctalia.getConfig("username"),
+    password = noctalia.getConfig("password"),
+  }, cb)
+end
 
 local function apiCall(method, path)
   local base = targetBase()
@@ -183,6 +181,126 @@ function onClose()
   panel.close()
 end
 
+-- ------------------------------------------------------- storage browser
+
+local function storageSlug(path)
+  -- Parentheses matter: bare gsub chains also return the match count, which
+  -- would leak into single-value contexts as a phantom numeric segment.
+  return (tostring(path or ""):gsub("^/+", ""):gsub("/+$", ""))
+end
+
+local function resetRel()
+  relPath = {}
+  pathHistory = {}
+  lastLoadedKey = nil
+end
+
+local function pushHistory()
+  local copy = {}
+  for i, v in ipairs(relPath) do copy[i] = v end
+  pathHistory[#pathHistory + 1] = copy
+end
+
+-- Human-readable breadcrumb: display names where available (v4 parity).
+local function displayRelPath()
+  local parts = {}
+  for i, seg in ipairs(relPath) do parts[i] = seg.display_name or seg.name end
+  return "/" .. table.concat(parts, "/")
+end
+
+local function syncStorage()
+  local list = S.storage_list
+  if type(list) ~= "table" then list = {}; S.storage_list = list end
+  if chosenStorage ~= nil then
+    local stillThere = false
+    for _, entry in ipairs(list) do
+      if entry.path == chosenStorage then stillThere = true; break end
+    end
+    if not stillThere then
+      chosenStorage = nil; resetRel(); dirEntries = {}; dirError = ""
+    end
+  end
+  if chosenStorage == nil then
+    chosenStorage = S.selected_storage or (list[1] and list[1].path) or nil
+    if chosenStorage ~= nil then resetRel() end
+  end
+end
+
+local function ensureDirLoaded()
+  if currentTab ~= 1 or chosenStorage == nil or dirLoading ~= "" then return end
+  local shortNames = {}
+  for i, seg in ipairs(relPath) do shortNames[i] = seg.name end
+  local key = chosenStorage .. "#" .. table.concat(shortNames, "/")
+  if lastLoadedKey == key then return end
+  local segments = { storageSlug(chosenStorage) }
+  for _, segment in ipairs(relPath) do
+    segments[#segments + 1] = noctalia.string.urlEncode(segment.name)
+  end
+  local path = "/api/v1/files/" .. table.concat(segments, "/")
+  noctalia.log("[prusa-link] files GET " .. targetBase() .. path)
+
+  dirLoading = "Loading…"
+  dirError = ""
+  renderPanel()
+  apiGet(path, function(res)
+    -- Clear unconditionally first: nothing below may wedge us on Loading….
+    dirLoading = ""
+    noctalia.log(string.format(
+      "[prusa-link] files done ok=%s status=%s len=%s",
+      tostring(res.ok), tostring(res.status), tostring(#tostring(res.body))))
+
+    local processed, perr = pcall(function()
+      if not (res.ok and res.status == 200) then
+        local detail = tostring(res.body or "")
+        dirError = detail ~= "" and detail or ("HTTP " .. tostring(res.status))
+        return
+      end
+      local data = noctalia.json.decode(res.body)
+      local children = (type(data) == "table" and type(data.children) == "table")
+        and data.children or {}
+      local dirs, files = {}, {}
+      for _, entryItem in ipairs(children) do
+        if entryItem.type == "FOLDER" then dirs[#dirs + 1] = entryItem
+        else files[#files + 1] = entryItem end
+      end
+      local function byDisplayName(x, y)
+        local xn = (x.display_name or x.name or ""):lower()
+        local yn = (y.display_name or y.name or ""):lower()
+        return xn < yn
+      end
+      table.sort(dirs, byDisplayName)
+      table.sort(files, byDisplayName)
+      dirEntries = {}
+      for _, d in ipairs(dirs) do dirEntries[#dirEntries + 1] = d end
+      for _, f in ipairs(files) do dirEntries[#dirEntries + 1] = f end
+      lastLoadedKey = key
+      dirError = ""
+    end)
+    if not processed then
+      dirError = "listing failed: " .. tostring(perr)
+      noctalia.log("[prusa-link] files parse error: " .. tostring(perr))
+    end
+    renderPanel()
+  end)
+end
+
+function onDirBack()
+  if #pathHistory > 0 then
+    relPath = table.remove(pathHistory)
+    lastLoadedKey = nil
+    ensureDirLoaded()
+  end
+end
+
+function onDirRoot()
+  if #relPath > 0 then
+    pushHistory()
+    relPath = {}
+    lastLoadedKey = nil
+    ensureDirLoaded()
+  end
+end
+
 -- ------------------------------------------------------------------- ui
 
 local function propRow(icon, label, value, valueColor)
@@ -195,9 +313,8 @@ local function propRow(icon, label, value, valueColor)
   })
 end
 
--- Lay out up to three property cells; missing cells become flexible spacers
--- so the present ones keep equal thirds instead of splitting the free width.
 local function rowOf3(a, b, c)
+  -- Missing cells become flexible spacers so present ones keep equal thirds.
   local given = { a, b, c }
   local items = {}
   for i = 1, 3 do
@@ -256,6 +373,79 @@ local function iconButton(glyph, tooltip, handler, variant)
   })
 end
 
+local function buildStorageBody()
+  local list = S.storage_list
+  if type(list) ~= "table" or #list == 0 then
+    return ui.column({ gap = 8, align = "stretch" }, {
+      ui.label({ text = "No storage available.", color = "on_surface_variant" }),
+    })
+  end
+
+  local options, selectedIndex = {}, 0
+  for i, entry in ipairs(list) do
+    options[i] = tostring(entry.display_name or entry.name or entry.path)
+    if entry.path == chosenStorage then selectedIndex = i - 1 end
+  end
+
+  local children = {
+    ui.select({
+      options = options,
+      selectedIndex = selectedIndex,
+      onChange = function(indexText)
+        local entry = list[(tonumber(indexText) or 0) + 1]
+        if entry ~= nil and entry.path ~= chosenStorage then
+          chosenStorage = entry.path
+          resetRel()
+          dirEntries = {}
+          dirError = ""
+          ensureDirLoaded()
+        end
+      end,
+    }),
+  }
+
+  if #relPath > 0 then
+    children[#children + 1] = ui.row({ gap = 6, align = "center" }, {
+      iconButton("chevron-left", "Go back", "onDirBack"),
+      iconButton("chevron-up", "Go to storage root", "onDirRoot"),
+      ui.label({ text = displayRelPath(), fontSize = 11,
+                 color = "on_surface_variant", flexGrow = 1 }),
+    })
+  end
+
+  if dirLoading ~= "" then
+    children[#children + 1] = ui.label({ text = dirLoading, color = "on_surface_variant" })
+  elseif dirError ~= "" then
+    children[#children + 1] = ui.label({ text = dirError, color = "error" })
+  elseif #dirEntries == 0 then
+    children[#children + 1] = ui.label({ text = "No files", color = "on_surface_variant" })
+  else
+    for _, entryItem in ipairs(dirEntries) do
+      local isFolder = entryItem.type == "FOLDER"
+      children[#children + 1] = ui.row({
+        gap = 8, align = "center",
+        onClick = function()
+          if isFolder then
+            pushHistory()
+            relPath[#relPath + 1] = {
+              name = tostring(entryItem.name),
+              display_name = tostring(entryItem.display_name or entryItem.name),
+            }
+            lastLoadedKey = nil
+            ensureDirLoaded()
+          end
+        end,
+      }, {
+        ui.glyph({ name = isFolder and "folder" or "file", size = 16,
+                   color = isFolder and "primary" or "on_surface_variant" }),
+        ui.label({ text = tostring(entryItem.display_name or entryItem.name), flexGrow = 1 }),
+      })
+    end
+  end
+
+  return ui.column({ gap = 8, align = "stretch" }, children)
+end
+
 local function buildTree()
   local connected = S.connected == true
   local state = tostring(S.printer_state or "OFFLINE")
@@ -266,9 +456,9 @@ local function buildTree()
   local info = (type(S.info) == "table") and S.info or {}
   local printerName = info.name or info.hostname or (connected and "Unknown" or "Not connected")
 
-  -- header -------------------------------------------------------------
   local headerItems = {
-    ui.glyph({ name = (connected and state ~= "OFFLINE") and "printer" or "printer-off", size = 22, color = role }),
+    ui.glyph({ name = (connected and state ~= "OFFLINE") and "printer" or "printer-off",
+               size = 22, color = role }),
     ui.label({ text = "PrusaLink", fontWeight = "bold", fontSize = 14 }),
     ui.label({ text = tostring(printerName), color = "on_surface_variant", fontSize = 13, maxWidth = 180 }),
   }
@@ -286,79 +476,74 @@ local function buildTree()
   headerItems[#headerItems + 1] = iconButton("external-link", "Open web interface", "onOpenWebUI")
   headerItems[#headerItems + 1] = iconButton("close", "Close panel", "onClose")
 
-  local headerChildren = {
-    ui.row({ gap = 8, align = "center" }, headerItems),
-  }
+  local headerChildren = { ui.row({ gap = 8, align = "center" }, headerItems) }
   if not connected then
     local detail = (S.error ~= nil and S.error ~= "") and tostring(S.error) or "Printer unreachable"
     headerChildren[2] = ui.label({ text = detail, fontSize = 11, color = "error" })
   elseif actionError ~= "" then
     headerChildren[2] = ui.label({ text = actionError, fontSize = 11, color = "error" })
   end
-  local header = ui.column({ gap = 6, padding = 10, fill = "surface_variant/0.35", radius = 10, align = "stretch" }, headerChildren)
+  local header = ui.column({ gap = 6, padding = 10, fill = "surface_variant/0.35",
+                             radius = 10, align = "stretch" }, headerChildren)
 
-  -- tabs ---------------------------------------------------------------
-  -- Segmented-button stand-in for tabs: the plugin API has no native tab
-  -- control yet (v5 is beta). When the shell grows one (e.g. ui.tabs),
-  -- replace this row with it — see MIGRATION.md Step 4.
+  -- Segmented-button stand-in for tabs: no native tab control yet (v5 beta).
   local tabBar = ui.row({ gap = 6, align = "stretch" }, {
-    ui.button({ text = "Status", variant = "secondary", selected = currentTab == 0, controlSize = "sm", flexGrow = 1,
-      onClick = function() currentTab = 0; renderPanel() end }),
-    ui.button({ text = "Storage", variant = "secondary", selected = currentTab == 1, controlSize = "sm", flexGrow = 1,
-      onClick = function() currentTab = 1; renderPanel() end }),
+    ui.button({ text = "Status", variant = "secondary", selected = currentTab == 0,
+                controlSize = "sm", flexGrow = 1,
+                onClick = function() currentTab = 0; renderPanel() end }),
+    ui.button({ text = "Storage", variant = "secondary", selected = currentTab == 1,
+                controlSize = "sm", flexGrow = 1,
+                onClick = function() currentTab = 1; renderPanel(); ensureDirLoaded() end }),
   })
 
-  -- body ---------------------------------------------------------------
   local body
   if currentTab == 1 then
-    body = ui.column({ gap = 8, align = "stretch" }, {
-      ui.label({ text = "Storage browser arrives in the next update.", color = "on_surface_variant" }),
-    })
+    body = buildStorageBody()
   else
-    local statusChildren = {
+    local progress = tonumber(S.progress) or 0
+    local statusBox = ui.column({ gap = 10, padding = 10, fill = "surface_variant/0.35",
+                                  radius = 10, align = "stretch" }, {
       rowOf3(
-        propRow(connected and state ~= "OFFLINE" and "printer" or "printer-off", "State", STATE_LABELS[state] or state, role),
-        propRow("thermometer", "Nozzle", string.format("%.1f / %.0f °C", tonumber(S.temp_nozzle) or 0, tonumber(S.target_nozzle) or 0)),
-        propRow("thermometer", "Bed", string.format("%.1f / %.0f °C", tonumber(S.temp_bed) or 0, tonumber(S.target_bed) or 0))
-      ),
+        propRow((connected and state ~= "OFFLINE") and "printer" or "printer-off",
+                "State", STATE_LABELS[state] or state, role),
+        propRow("thermometer", "Nozzle",
+                string.format("%.1f / %.0f °C", tonumber(S.temp_nozzle) or 0, tonumber(S.target_nozzle) or 0)),
+        propRow("thermometer", "Bed",
+                string.format("%.1f / %.0f °C", tonumber(S.temp_bed) or 0, tonumber(S.target_bed) or 0))),
       rowOf3(
         propRow("gauge", "Flow", string.format("%d%%", tonumber(S.flow) or 100)),
         propRow("gauge", "Speed", string.format("%d%%", tonumber(S.speed) or 100)),
-        propRow("ruler-measure", "Z-height", string.format("%.1f mm", tonumber(S.axis_z) or 0))
-      ),
+        propRow("ruler-measure", "Z-height", string.format("%.1f mm", tonumber(S.axis_z) or 0))),
       rowOf3(
         propRow("wind", "Hotend fan", fmtFan(S.fan_hotend)),
         propRow("wind", "Print fan", fmtFan(S.fan_print)),
-        propRow("circle-dot", "Nozzle ⌀", string.format("%.2f mm", tonumber(info.nozzle_diameter) or 0))
-      ),
-    }
-    local statusBox = ui.column({ gap = 10, padding = 10, fill = "surface_variant/0.35", radius = 10, align = "stretch" }, statusChildren)
-
+        propRow("circle-dot", "Nozzle ⌀", string.format("%.2f mm", tonumber(info.nozzle_diameter) or 0))),
+    })
     local bodyParts = { statusBox }
 
-    local progress = tonumber(S.progress) or 0
     if jobId >= 0 and (file.name ~= nil or file.display_name ~= nil) then
-      local jobChildren = {
+      bodyParts[#bodyParts + 1] = ui.column({ gap = 8, padding = 10,
+          fill = "surface_variant/0.35", radius = 10, align = "stretch" }, {
         ui.label({ text = tostring(file.display_name or file.name), fontWeight = "bold", fontSize = 13 }),
         ui.row({ gap = 8, align = "center" }, {
-          ui.progress({ progress = math.max(0, math.min(1, progress / 100)), fill = "primary", radius = 4, height = 8, flexGrow = 1 }),
-          ui.label({ text = string.format("%d%%", math.floor(progress + 0.5)), fontSize = 11, fontWeight = "bold" }),
+          ui.progress({ progress = math.max(0, math.min(1, progress / 100)),
+                        fill = "primary", radius = 4, height = 8, flexGrow = 1 }),
+          ui.label({ text = string.format("%d%%", math.floor(progress + 0.5)),
+                     fontSize = 11, fontWeight = "bold" }),
         }),
         rowOf3(
           propRow("hourglass-high", "Remaining", fmtTime(S.time_remaining)),
           propRow("hourglass-low", "Printing time", fmtTime(S.time_printing)),
-          propRow("clock", "Estimated end", fmtEndTime(S.time_remaining))
-        ),
+          propRow("clock", "Estimated end", fmtEndTime(S.time_remaining))),
         rowOf3(
           propRow("calendar", "Last modified", fmtModified(file.m_timestamp)),
-          propRow("file", "File size", fmtSize(file.size))
-        ),
-      }
-      bodyParts[#bodyParts + 1] = ui.column({ gap = 8, padding = 10, fill = "surface_variant/0.35", radius = 10, align = "stretch" }, jobChildren)
+          propRow("file", "File size", fmtSize(file.size))),
+      })
     end
 
     if connected and state ~= "OFFLINE" then
-      bodyParts[#bodyParts + 1] = ui.column({ gap = 10, padding = 10, fill = "surface_variant/0.35", radius = 10, align = "stretch" }, {
+      bodyParts[#bodyParts + 1] = ui.column({ gap = 10, padding = 10,
+          fill = "surface_variant/0.35", radius = 10, align = "stretch" }, {
         graphBlock("Nozzle temperature (°C)", S.nozzle_temp_history, S.nozzle_target_history, 300),
         graphBlock("Bed temperature (°C)", S.bed_temp_history, S.bed_target_history, 120),
       })
@@ -370,8 +555,6 @@ local function buildTree()
   return ui.column({ flexGrow = 1, gap = 10, align = "stretch" }, {
     header,
     tabBar,
-    -- padding pinned to 0: keep the scrolling viewport flush with the header
-    -- and tab row above it (some scroll surfaces carry a default inset).
     ui.scroll({ gap = 10, flexGrow = 1, align = "stretch", padding = 0 }, { body }),
   })
 end
@@ -382,13 +565,19 @@ renderPanel = function()
   end
 end
 
--- ------------------------------------------------------------- lifecycle
+-- ------------------------------------------------------------- watchers
 
 for _, key in ipairs(WATCHED) do
   noctalia.state.watch(key, function(value)
     S[key] = value
     if key == "printer_state" or key == "job_id" then
-      actionError = "" -- stale action feedback dies with the state it came from
+      actionError = ""
+    end
+    if key == "storage_list" or key == "selected_storage" then
+      syncStorage()
+      if currentTab == 1 then
+        ensureDirLoaded()
+      end
     end
     renderPanel()
   end)
@@ -401,6 +590,7 @@ function onOpen(_context)
   for _, key in ipairs(WATCHED) do
     S[key] = noctalia.state.get(key)
   end
+  syncStorage()
   renderPanel()
 end
 
@@ -408,7 +598,8 @@ function onClose()
   isOpen = false
 end
 
--- seed mirror so the first open reflects current state even pre-watch-fire
+-- Seed the mirror from whatever the service already published.
 for _, key in ipairs(WATCHED) do
   S[key] = noctalia.state.get(key)
 end
+syncStorage()
