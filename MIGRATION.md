@@ -194,7 +194,8 @@ Implement the bar widget replacing `BarWidget.qml`.
 
 - Watch `"connected"` and `"printer_state"` via `noctalia.state.watch()` —
   register watches at top level (they persist across re-renders).
-- In `update()`:
+- Rendering is push-driven: every service publication triggers a re-render and
+  no polling tick is needed (the service dedupes publications upstream).
   - Set glyph: `barWidget.setGlyph("printer")` or `"printer-off"` (offline), and
     color-code with `barWidget.setColor(role)` / `setGlyphColor(role)`:
     `primary` for PRINTING/PAUSED/FINISHED, `error` for ERROR/ATTENTION,
