@@ -155,13 +155,9 @@ local function bridgeRun(finish, opts, insecure, timeoutSec)
   argv[#argv + 1] = "-w"
   argv[#argv + 1] = "\n@@HTTP:%{http_code}"
   argv[#argv + 1] = opts.url
-  noctalia.log("[prusa-link http] curl -> " .. opts.url)
 
   local accepted = noctalia.runAsync(argv, function(result)
     result = result or {}
-    noctalia.log(string.format("[prusa-link http] curl <- exit=%s len=%s truncated=%s",
-      tostring(result.exitCode), tostring(#(result.stdout or "")),
-      tostring(result.stdoutTruncated)))
     if result.exitCode == 60 and not wantsInsecure and origin:sub(1, 6) == "https:" then
       insecureOrigins[origin] = true -- SSL certificate problem: retry once with -k
       bridgeRun(finish, opts, true, timeoutSec)
