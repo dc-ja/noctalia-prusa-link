@@ -349,8 +349,10 @@ local function graphBlock(title, actualHist, targetHist, maxValue)
     ui.label({ text = title, fontSize = 11, color = "on_surface_variant" }),
     ui.row({ gap = 6, align = "stretch" }, {
       ui.graph({
-        values = normalize(actualHist, maxValue),
-        values2 = normalize(targetHist, maxValue),
+        -- The graph's values2/primary series draws in the foreground; the
+        -- values/outline series sits behind it.
+        values = normalize(targetHist, maxValue),
+        values2 = normalize(actualHist, maxValue),
         color = "outline",
         color2 = "primary",
         height = 90,
