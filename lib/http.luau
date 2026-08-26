@@ -3,23 +3,22 @@
   Shared HTTP helper for the PrusaLink entries (service, widget, panel).
 
   Auth reality (spiked against server 2.1.2, live-confirmed in Noctalia):
-    - The printer speaks HTTP Digest only; Basic is rejected outright.
-    - noctalia.http does NOT answer digest challenges.
-    - HttpResponse exposes no headers, so we cannot do the RFC handshake.
-  Therefore requests go native first; on a 401 the origin switches to a
-  `curl --digest` bridge executed via the argv-table form of noctalia.runAsync
-  (plugin_api >= 24) and stays there for the session. The bridge also restores
-  real timeouts (-m) that HttpRequest lacks.
+    - The printer speaks HTTP digest only; Basic is rejected outright.
+    - noctalia.http does NOT answer digest challenges and emits a WRN on every
+      failed request. Since every relevant endpoint needs digest auth, it is
+      not used at all.
+  All requests go straight through a `curl --digest` bridge executed via the
+  argv-table form of noctalia.runAsync (plugin_api >= 24). Callers use
+  M.request() so the transport can be swapped back to noctalia.http the moment
+  it grows digest support. The bridge restores real timeouts (-m).
 
-  HTTPS: native tries certificate verification first and retries once with
-  allow_insecure_tls; the bridge mirrors this with -k. Decisions are cached
-  per origin. Every callback fires EXACTLY ONCE.
+  HTTPS: certificate verification first; a TLS error retries once with -k and
+  the decision is cached per origin. Every callback fires exactly once.
 ]]
 
 local M = {}
 
 local insecureOrigins = {} -- origin -> true: skip strict-TLS attempts
-local curlOrigins = {}     -- origin -> true: native 401'd once, use the bridge
 local curlAvailable = nil  -- tri-state cache for commandExists("curl")
 
 -- ------------------------------------------------------------ URL helpers
@@ -89,45 +88,9 @@ local function finishOnce(cb)
   end
 end
 
--- ------------------------------------------------------------- native path
-
-local runBridge -- forward declaration; assigned below
-
-local function nativeAttempt(finish, opts, insecure)
-  local req = {
-    url = opts.url,
-    method = opts.method or "GET",
-    headers = opts.headers,
-    body = opts.body,
-  }
-  if opts.username and opts.username ~= "" then
-    req.basic_username = opts.username
-  end
-  if opts.password and opts.password ~= "" then
-    req.basic_password = opts.password
-  end
-  if insecure then
-    req.allow_insecure_tls = true
-  end
-  local started = noctalia.http(req, function(res)
-    local transportFailed = res == nil or res.ok == false
-    local origin = string.match(opts.url or "", "^(https://[^/]+)")
-    if res ~= nil and res.status == 401 then
-      noctalia.log("[prusa-link http] native 401 -> curl bridge: " .. (origin or "?"))
-    end
-    if transportFailed and origin ~= nil and insecure ~= true and opts.insecureFallback ~= false then
-      insecureOrigins[origin] = true
-      nativeAttempt(finish, opts, true)
-      return
-    end
-    finish(res)
-  end)
-  if not started then
-    finish({ ok = false, status = 0, body = "request rejected by host" })
-  end
-end
-
 -- ------------------------------------------------------------- curl bridge
+
+local runBridge
 
 local function bridgeRun(finish, opts, insecure, timeoutSec)
   local origin = string.match(opts.url or "", "^(https?://[^/]+)") or ""
@@ -204,36 +167,20 @@ runBridge = function(finish, opts)
   elseif timeoutSec > 60 then
     timeoutSec = 60
   end
-  bridgeRun(finish, opts, false, timeoutSec)
+  local origin = string.match(opts.url or "", "^(https?://[^/]+)") or ""
+  bridgeRun(finish, opts, insecureOrigins[origin] == true, timeoutSec)
 end
 
 -- -------------------------------------------------------------- public API
 
 --- Issue one HTTP request. opts:
 ---   url (required), method ("GET"), headers ({ "H: v", ... }), body,
----   username / password, timeoutMs (bridge only; default 5000, clamp 1–60 s),
----   insecureFallback (default true).
---- cb receives { ok, status, body } exactly once. Origins whose native attempt
---- returns 401 switch to the curl --digest bridge for the rest of the session.
+---   username / password, timeoutMs (default 5000, clamp 1-60 s).
+--- cb receives { ok, status, body } exactly once. All requests go through the
+--- curl --digest bridge; swap the transport below if noctalia.http ever gains
+--- digest support.
 function M.request(opts, cb)
-  local finish = finishOnce(cb)
-  local origin = string.match(opts.url or "", "^(https?://[^/]+)") or ""
-
-  if curlOrigins[origin] then
-    runBridge(finish, opts)
-    return
-  end
-
-  nativeAttempt(function(res)
-    local hasCreds = (opts.username ~= nil and opts.username ~= "")
-      or (opts.password ~= nil and opts.password ~= "")
-    if res ~= nil and res.status == 401 and origin ~= "" and hasCreds then
-      curlOrigins[origin] = true
-      runBridge(finish, opts)
-      return
-    end
-    finish(res)
-  end, opts, insecureOrigins[origin] == true)
+  runBridge(finishOnce(cb), opts)
 end
 
 return M
