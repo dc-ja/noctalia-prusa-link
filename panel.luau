@@ -235,6 +235,7 @@ end
 
 local function ensureDirLoaded()
   if currentTab ~= 1 or chosenStorage == nil or dirLoading ~= "" then return end
+  if printerOffline() then return end -- offline: nothing to fetch
   local shortNames = {}
   for i, seg in ipairs(relPath) do shortNames[i] = seg.name end
   local key = chosenStorage .. "#" .. table.concat(shortNames, "/")
@@ -383,6 +384,14 @@ local function iconButton(glyph, tooltip, handler, variant)
 end
 
 local function buildStorageBody()
+  if printerOffline() then
+    -- Offline: don't parade the failing fetch; relay it plainly, not as an
+    -- error line.
+    dirLoading = ""
+    return ui.column({ gap = 8, align = "stretch" }, {
+      ui.label({ text = "Printer is offline — files unavailable.", color = "on_surface_variant" }),
+    })
+  end
   local list = S.storage_list
   if type(list) ~= "table" or #list == 0 then
     return ui.column({ gap = 8, align = "stretch" }, {
