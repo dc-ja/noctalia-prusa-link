@@ -12,6 +12,11 @@
   M.request() so the transport can be swapped back to noctalia.http the moment
   it grows digest support. The bridge restores real timeouts (-m).
 
+  Binary downloads: pass opts.destPath to stream the payload straight to disk
+  (-f -o <path>) instead of capturing it as a Lua string — no 1 MiB stdout
+  cap, no encoding hazard. On success res.body is "" and res.status says 2xx;
+  callers own temp-file/rename atomicity (see lib/thumbs.luau).
+
   HTTPS: certificate verification first; a TLS error retries once with -k and
   the decision is cached per origin. Every callback fires exactly once.
 ]]
@@ -111,6 +116,13 @@ local function bridgeRun(finish, opts, insecure, timeoutSec)
     argv[#argv + 1] = "-H"
     argv[#argv + 1] = header
   end
+  -- Binary-friendly download: --fail keeps error pages out of the file; the
+  -- body goes to destPath while stdout only carries the @@HTTP status marker.
+  if opts.destPath ~= nil and opts.destPath ~= "" then
+    argv[#argv + 1] = "--fail"
+    argv[#argv + 1] = "-o"
+    argv[#argv + 1] = opts.destPath
+  end
   local wantsInsecure = insecure == true or insecureOrigins[origin] == true
   if wantsInsecure and origin:sub(1, 6) == "https:" then
     argv[#argv + 1] = "-k"
@@ -175,7 +187,8 @@ end
 
 --- Issue one HTTP request. opts:
 ---   url (required), method ("GET"), headers ({ "H: v", ... }), body,
----   username / password, timeoutMs (default 5000, clamp 1-60 s).
+---   username / password, timeoutMs (default 5000, clamp 1-60 s),
+---   destPath (stream body to this file; see header comment above).
 --- cb receives { ok, status, body } exactly once. All requests go through the
 --- curl --digest bridge; swap the transport below if noctalia.http ever gains
 --- digest support.

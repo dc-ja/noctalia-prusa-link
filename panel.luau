@@ -6,10 +6,12 @@
   scroll-clipped body; header carries job controls that talk to the printer
   directly through lib/http.luau (inheriting the curl digest bridge).
   Temperature graphs normalise history against the v4 scale (300/120 degC)
-  with a labelled tick rail beside each plot.
+  with a labelled tick rail beside each plot. Storage rows render G-code
+  thumbnails from the disk cache in lib/thumbs.luau when available.
 ]]
 
 local http = require("./lib/http.luau")
+local thumbs = require("./lib/thumbs.luau")
 
 -- ------------------------------------------------------------ live state
 
@@ -184,8 +186,21 @@ function onOpenWebUI()
   end
 end
 
-function onClose()
-  panel.close()
+-- Closing lives in the single onClose() defined near the lifecycle tail.
+
+-- ------------------------------------------------------- deferred rendering
+
+-- Thumbnail/poll completions must never rebuild the tree on the calling
+-- (async command / curl) stack: a single callback slice can't afford full
+-- re-renders, let alone a drain that settles several downloads. Arm one
+-- coalesced frame tick instead — onFrameTick owns a fresh CPU slice.
+local renderArmed = false
+
+local function scheduleRender()
+  if not renderArmed then
+    renderArmed = true
+    panel.setNeedsFrameTick(true)
+  end
 end
 
 -- ------------------------------------------------------- storage browser
@@ -383,6 +398,15 @@ local function iconButton(glyph, tooltip, handler, variant)
   })
 end
 
+-- Storage-row leading icon cell. Real art, placeholders and folder glyphs all
+-- share this exact square so rows keep one rhythm regardless of cache state.
+local THUMB_PX = 40
+
+local function iconCell(node)
+  return ui.row({ width = THUMB_PX, height = THUMB_PX, gap = 0,
+                  align = "center", justify = "center" }, { node })
+end
+
 local function buildStorageBody()
   if printerOffline() then
     -- Offline: don't parade the failing fetch; relay it plainly, not as an
@@ -438,25 +462,79 @@ local function buildStorageBody()
   elseif #dirEntries == 0 then
     children[#children + 1] = ui.label({ text = "No files", color = "on_surface_variant" })
   else
+    -- Thumbnail plumbing rides one render: origin prefix + digest creds for
+    -- the fetcher, stable keys so glyph→image swaps patch in place.
+    local thumbBase = targetBase()
+    local thumbAuth = {
+      user = noctalia.getConfig("username") or "",
+      pass = noctalia.getConfig("password") or "",
+    }
     for _, entryItem in ipairs(dirEntries) do
       local isFolder = entryItem.type == "FOLDER"
+      local entryName = tostring(entryItem.name)
+      local iconNode
+      if isFolder then
+        iconNode = ui.glyph({ name = "folder", size = 26, color = "primary" })
+      else
+        -- Candidate renditions: small icon first, large variant as fallback —
+        -- some printers expose only one of the two per file.
+        local refs = type(entryItem.refs) == "table" and entryItem.refs or {}
+        local urlList = {}
+        for _, refPath in ipairs({ refs.icon, refs.thumbnail }) do
+          if type(refPath) == "string" and refPath ~= "" then
+            local u = thumbs.thumbUrl(thumbBase, refPath)
+            if u ~= "" then
+              urlList[#urlList + 1] = u
+            end
+          end
+        end
+        if #urlList > 1 and urlList[1] == urlList[2] then
+          table.remove(urlList) -- degenerate payload: both refs identical
+        end
+        local state = "absent"
+        if #urlList > 0 then
+          local imagePath = thumbs.lookup(urlList)
+          if imagePath ~= nil then
+            iconNode = ui.image({ path = imagePath, width = THUMB_PX,
+                                  height = THUMB_PX, fit = "contain", radius = 4 })
+          else
+            -- Not on disk (caller-established): fetch once with fallback,
+            -- hint while in flight. Completion re-enters via frame tick.
+            state = thumbs.stateFor(urlList, true)
+            if state == "missing" and thumbs.request(urlList, thumbAuth,
+                                                     scheduleRender) then
+              state = "pending"
+            end
+          end
+        end
+        if iconNode == nil then
+          -- Placeholder/fallback: loading hint while fetching, plain file
+          -- glyph when there's no image to be had.
+          local pendingThumb = state == "pending"
+          iconNode = ui.glyph({
+            name = pendingThumb and "photo" or "file",
+            size = 26,
+            color = "on_surface_variant",
+          })
+        end
+      end
       children[#children + 1] = ui.row({
+        key = "store-" .. entryName,
         gap = 8, align = "center",
         onClick = function()
           if isFolder then
             pushHistory()
             relPath[#relPath + 1] = {
-              name = tostring(entryItem.name),
-              display_name = tostring(entryItem.display_name or entryItem.name),
+              name = entryName,
+              display_name = tostring(entryItem.display_name or entryName),
             }
             lastLoadedKey = nil
             ensureDirLoaded()
           end
         end,
       }, {
-        ui.glyph({ name = isFolder and "folder" or "file", size = 16,
-                   color = isFolder and "primary" or "on_surface_variant" }),
-        ui.label({ text = tostring(entryItem.display_name or entryItem.name), flexGrow = 1 }),
+        iconCell(iconNode),
+        ui.label({ text = tostring(entryItem.display_name or entryName), flexGrow = 1 }),
       })
     end
   end
@@ -586,6 +664,19 @@ renderPanel = function()
   end
 end
 
+-- Consumes what scheduleRender() armed. Deliberately runs OUTSIDE the async
+-- command stack: this rebuild may be heavy (long listings, many image swaps)
+-- and deserves its own fresh CPU slice. Unarmed ticks are ignored — the host
+-- may still deliver one coalesced frame after we disarm.
+function onFrameTick(_deltaMs)
+  if not renderArmed then
+    return
+  end
+  renderArmed = false
+  panel.setNeedsFrameTick(false)
+  renderPanel()
+end
+
 -- ------------------------------------------------------------- watchers
 
 for _, key in ipairs(WATCHED) do
@@ -617,6 +708,9 @@ end
 
 function onClose()
   isOpen = false
+  renderArmed = false -- drop any pending deferred render with the surface
+  panel.setNeedsFrameTick(false)
+  panel.close()
 end
 
 -- Seed the mirror from whatever the service already published.

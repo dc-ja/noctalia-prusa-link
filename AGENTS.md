@@ -22,13 +22,15 @@ prusa-link/
   translations/
     en.json        -- setting labels, UI strings
   lib/
-    http.luau      -- HTTP wrapper with optional digest auth fallback
+    http.luau      -- HTTP wrapper; everything rides a curl --digest bridge
+    thumbs.luau    -- G-code thumbnail disk cache (pluginDataDir/thumbnails)
 ```
 
 ### Key Design Decisions
 
 - **service.luau** is the single source of truth for printer state. Widget and panel read from `noctalia.state` keys.
 - **HTTP Digest auth**: live-tested — Noctalia's `noctalia.http` does not answer digest challenges, and `HttpResponse` exposes no headers to do it ourselves, while the printer rejects Basic outright. `lib/http.luau` therefore falls back to a `curl --digest` bridge via the argv-table form of `noctalia.runAsync` (requires `plugin_api = 24`) whenever the native path returns 401, remembering the choice per printer. Callers keep a simple `http.request()` interface.
+- **G-code thumbnails** (issue #4): storage-browser rows show printer-supplied art via `ui.image`, sourced from `lib/thumbs.luau`'s persistent cache under `noctalia.pluginDataDir()/thumbnails/`. Cache filenames are the url-encoded full URL truncated under one filesystem component plus two length-mixed edge checksums over its first/last 24 bytes — per-byte hashing of every URL measured hot enough to blow the host's CPU budget on big listings, so key construction is O(1)-ish per row and memoized. Image bytes stream through the curl bridge straight to disk (`destPath`, `-f -o`) and land atomically by temp-file rename after a 2xx; each file is fetched as a candidate chain (`refs.icon` small first, `refs.thumbnail` large as automatic fallback) and per-URL misses are negative-cached for ten minutes so re-renders can't retry-storm but stale gaps do recover; the store self-trims to 24 MiB oldest-mtime-first (throttled) and sweeps orphaned `*.part` temps. Fetch completions never rebuild the tree on the curl-callback stack — the panel arms a coalesced frame tick (`panel.setNeedsFrameTick` → `onFrameTick`) so expensive re-renders land in their own CPU slice instead of blowing the async-command budget.
 - **Polling interval** has three user-configurable values — offline (10s), idle (2s), printing (1s) — dynamically switched based on printer state. The service calls `noctalia.setUpdateInterval(ms)` each `update()` tick.
 - **Bar widget** uses the imperative API: `barWidget.setGlyph()`, `barWidget.setText()`, `barWidget.setTooltip()`.
 - **Panel** uses declarative `ui.*` tree via `panel.render()`. Layout: `width = 600`, `height = 640`, `placement = "attached"` — fixed height because `"fill"` requires `placement = "floating"`; content wraps in `ui.scroll` so it survives smaller outputs.
@@ -90,12 +92,6 @@ missing primitives. Revisit whenever a new `plugin_api` level ships:
   `HttpResponse` hides response headers. If headers are exposed upstream,
   answer the challenge natively in `lib/http.luau` and drop the curl
   dependency.
-- **Job thumbnails** — `ui.image` accepts local paths only, so the v4 job
-  image was cut. Implementable today by downloading `refs.icon`/
-  `refs.thumbnail` through the http wrapper into `noctalia.pluginDataDir()`;
-  if `ui.image` later grows data-URI support that drops the temp file.
-  Remote sources would NOT help — printer images need digest auth, which an
-  image loader is unlikely to gain.
 - **Graph axes/gridlines** — no way today to draw reference lines or scale
   ticks over a `ui.graph`: the two-series cap consumes actual + target, and
   the declarative vocabulary has no overlay/z-order placement. A labelled
