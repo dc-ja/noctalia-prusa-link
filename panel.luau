@@ -597,24 +597,34 @@ local function buildTree()
     body = buildStorageBody()
   else
     local progress = tonumber(S.progress) or 0
-    -- Offline: temps, flow/speed, Z, fans and diameter report values that
-    -- aren't updating, so only the State property is meaningful.
     local offline = printerOffline()
-    local statusRows = { rowOf3(propRow("printer-off", "State", STATE_LABELS[state] or state, role)) }
-    if not offline then
-      statusRows[#statusRows + 1] = rowOf3(
-        propRow("thermometer", "Nozzle",
-                string.format("%.1f / %.0f °C", tonumber(S.temp_nozzle) or 0, tonumber(S.target_nozzle) or 0)),
-        propRow("thermometer", "Bed",
-                string.format("%.1f / %.0f °C", tonumber(S.temp_bed) or 0, tonumber(S.target_bed) or 0)))
-      statusRows[#statusRows + 1] = rowOf3(
-        propRow("gauge", "Flow", string.format("%d%%", tonumber(S.flow) or 100)),
-        propRow("gauge", "Speed", string.format("%d%%", tonumber(S.speed) or 100)),
-        propRow("ruler-measure", "Z-height", string.format("%.1f mm", tonumber(S.axis_z) or 0)))
-      statusRows[#statusRows + 1] = rowOf3(
-        propRow("wind", "Hotend fan", fmtFan(S.fan_hotend)),
-        propRow("wind", "Print fan", fmtFan(S.fan_print)),
-        propRow("circle-dot", "Nozzle ⌀", string.format("%.2f mm", tonumber(info.nozzle_diameter) or 0)))
+    local stateProp = propRow("printer-off", "State",
+                              STATE_LABELS[state] or state, role)
+    local statusRows
+    if offline then
+      -- Temps, flow/speed, Z and fans report stale values while the printer
+      -- is unreachable, so the card collapses to the State property alone.
+      statusRows = { rowOf3(stateProp) }
+    else
+      statusRows = {
+        rowOf3(stateProp,
+          propRow("thermometer", "Nozzle",
+                  string.format("%.1f / %.0f °C",
+                                tonumber(S.temp_nozzle) or 0,
+                                tonumber(S.target_nozzle) or 0)),
+          propRow("thermometer", "Bed",
+                  string.format("%.1f / %.0f °C",
+                                tonumber(S.temp_bed) or 0,
+                                tonumber(S.target_bed) or 0))),
+        rowOf3(
+          propRow("gauge", "Flow", string.format("%d%%", tonumber(S.flow) or 100)),
+          propRow("gauge", "Speed", string.format("%d%%", tonumber(S.speed) or 100)),
+          propRow("ruler-measure", "Z-height", string.format("%.1f mm", tonumber(S.axis_z) or 0))),
+        rowOf3(
+          propRow("wind", "Hotend fan", fmtFan(S.fan_hotend)),
+          propRow("wind", "Print fan", fmtFan(S.fan_print)),
+          propRow("circle-dot", "Nozzle ⌀", string.format("%.2f mm", tonumber(info.nozzle_diameter) or 0))),
+      }
     end
     local statusBox = ui.column({ gap = 10, padding = 10, fill = "surface_variant/0.35",
                                   radius = 10, align = "stretch" }, statusRows)
