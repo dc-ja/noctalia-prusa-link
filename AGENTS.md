@@ -135,5 +135,5 @@ missing primitives. Revisit whenever a new `plugin_api` level ships:
 ## What's Next (Phase 2)
 
 1. **Printer control (done)**: pause/resume/stop via `PUT/DELETE /api/v1/job/{id}/*` — implemented in the panel header.
-2. **Print file browser**: file browser in panel storage tab with folder navigation. Clicking a G-code file opens a preview panel with a "Start print" button.
+2. **Print file preview (done)**: clicking a print file in the storage browser opens a preview — large rendition (auto-fallback to the small one), file size/modified and parsed G-code metadata from the file detail endpoint. Start print is gated to idle/ready printers behind a bed-clean confirmation strip and `POST /api/v1/files/{storage}/{path}`; success closes the preview and shows the status tab, `409` surfaces "Printer is busy".
 3. **Notifications**: optional desktop notification when a print finishes or errors.

@@ -29,6 +29,9 @@ local dirEntries = {}  -- sorted children of the current directory
 local dirLoading = ""
 local dirError = ""
 local lastLoadedKey = nil
+local previewEntry = nil     -- listing item currently previewed (nil = list)
+local previewConfirm = false -- "start now?" confirmation strip is open
+local previewBusy = false    -- start-print POST in flight
 
 local WATCHED = {
   "connected", "error", "printer_state", "progress",
@@ -211,10 +214,17 @@ local function storageSlug(path)
   return (tostring(path or ""):gsub("^/+", ""):gsub("/+$", ""))
 end
 
+local function closePreview()
+  previewEntry = nil
+  previewConfirm = false
+  previewBusy = false
+end
+
 local function resetRel()
   relPath = {}
   pathHistory = {}
   lastLoadedKey = nil
+  closePreview()
 end
 
 local function pushHistory()
@@ -307,10 +317,110 @@ local function ensureDirLoaded()
   end)
 end
 
+-- ------------------------------------------------------- file preview
+
+local function apiFilePath(fileName)
+  local segments = { storageSlug(chosenStorage) }
+  for _, segment in ipairs(relPath) do
+    segments[#segments + 1] = segment.name
+  end
+  segments[#segments + 1] = fileName
+  for i, segment in ipairs(segments) do
+    segments[i] = noctalia.string.urlEncode(segment)
+  end
+  return "/api/v1/files/" .. table.concat(segments, "/")
+end
+
+local function openPreview(entryItem)
+  previewEntry = entryItem
+  previewConfirm = false
+  previewBusy = false
+  renderPanel()
+  -- The listing row carries basic fields only; the file's own endpoint adds
+  -- parsed G-code metadata (meta) and the full refs. Merge when it arrives.
+  apiGet(apiFilePath(entryItem.name), function(res)
+    if previewEntry ~= entryItem then
+      return -- navigated away or preview closed meanwhile
+    end
+    if res.ok and res.status == 200 then
+      local data = noctalia.json.decode(res.body)
+      if type(data) == "table" then
+        for _, key in ipairs({ "display_name", "size", "m_timestamp",
+                               "refs", "meta", "read_only" }) do
+          if data[key] ~= nil then
+            previewEntry[key] = data[key]
+          end
+        end
+      end
+    else
+      noctalia.log("[prusa-link] file detail failed (HTTP "
+        .. tostring(res.status) .. ")")
+    end
+    scheduleRender()
+  end)
+end
+
+function onPreviewClose()
+  closePreview()
+  renderPanel()
+end
+
+function onPreviewStart()
+  if previewEntry == nil then
+    return
+  end
+  previewConfirm = true
+  renderPanel()
+end
+
+function onPreviewCancel()
+  previewConfirm = false
+  renderPanel()
+end
+
+function onPreviewConfirm()
+  if previewBusy or previewEntry == nil then
+    return
+  end
+  local base = targetBase()
+  if base == "" then
+    actionError = "Printer URL is not configured"
+    renderPanel()
+    return
+  end
+  previewBusy = true
+  renderPanel()
+  -- POST /api/v1/files/{storage}/{path}: starts the print, body ignored.
+  -- 204 accepted; 409 when a job is already running; 404 file gone.
+  http.request({
+    url = base .. apiFilePath(previewEntry.name),
+    method = "POST",
+    username = noctalia.getConfig("username"),
+    password = noctalia.getConfig("password"),
+  }, function(res)
+    previewBusy = false
+    if res.ok and res.status >= 200 and res.status < 300 then
+      closePreview()
+      currentTab = 0 -- per issue #5: show the status tab after starting
+      actionError = ""
+    elseif res.status == 409 then
+      actionError = "Printer is busy (409)"
+    elseif res.status == 404 then
+      actionError = "File no longer exists (404)"
+    else
+      local detail = tostring(res.body or "")
+      actionError = detail ~= "" and detail
+        or ("Start failed (HTTP " .. tostring(res.status) .. ")")
+    end
+    scheduleRender()
+  end)
+end
+
 function onDirBack()
   if #pathHistory > 0 then
     relPath = table.remove(pathHistory)
     lastLoadedKey = nil
+    closePreview()
     ensureDirLoaded()
   end
 end
@@ -320,6 +430,7 @@ function onDirRoot()
     pushHistory()
     relPath = {}
     lastLoadedKey = nil
+    closePreview()
     ensureDirLoaded()
   end
 end
@@ -407,6 +518,148 @@ local function iconCell(node)
                   align = "center", justify = "center" }, { node })
 end
 
+-- Preview art spans the full body width; the height is a fixed budget so
+-- the pane keeps a predictable shape (art is letterboxed by fit="contain").
+local PREVIEW_H = 320
+
+-- Preview pane for one print file: large art, API-exposed details and the
+-- idle-gated start-print flow. Returns the node list to append to the
+-- storage tab body.
+local function buildPreviewBody(entryItem, thumbBase, thumbAuth, startable)
+  local children = {}
+
+  children[#children + 1] = ui.row({ gap = 8, align = "center" }, {
+    iconButton("chevron-left", "Back to files", "onPreviewClose"),
+    ui.label({ text = tostring(entryItem.display_name or entryItem.name),
+               fontWeight = "bold", fontSize = 14, flexGrow = 1 }),
+  })
+
+  -- Art: the large rendition first — the preview is where quality matters —
+  -- falling back to the small icon exactly like the listing rows. A cached
+  -- small variant is shown immediately while the large one downloads; the
+  -- next frame tick swaps it in.
+  local refs = type(entryItem.refs) == "table" and entryItem.refs or {}
+  local urlList = {}
+  local largeUrl = nil
+  for _, refPath in ipairs({ refs.thumbnail, refs.icon }) do
+    if type(refPath) == "string" and refPath ~= "" then
+      local u = thumbs.thumbUrl(thumbBase, refPath)
+      if u ~= "" then
+        urlList[#urlList + 1] = u
+        if largeUrl == nil then
+          largeUrl = u -- first candidate is the thumbnail by design
+        end
+      end
+    end
+  end
+  if #urlList > 1 and urlList[1] == urlList[2] then
+    table.remove(urlList) -- degenerate payload: both refs identical
+  end
+  local imagePath = thumbs.lookup(urlList)
+  if imagePath ~= nil then
+    children[#children + 1] = ui.row({ gap = 0 }, {
+      ui.image({ path = imagePath, flexGrow = 1, height = PREVIEW_H,
+                 fit = "contain", radius = 8 }),
+    })
+    if largeUrl ~= nil and thumbs.lookup(largeUrl) == nil then
+      thumbs.request(largeUrl, thumbAuth, scheduleRender) -- sharpness upgrade
+    end
+  elseif #urlList > 0 then
+    thumbs.request(urlList, thumbAuth, scheduleRender)
+    children[#children + 1] = ui.row({ gap = 0, height = PREVIEW_H,
+        align = "center", justify = "center" }, {
+      ui.glyph({ name = "photo", size = 96, color = "on_surface_variant" }),
+    })
+  else
+    children[#children + 1] = ui.row({ gap = 0, height = PREVIEW_H,
+        align = "center", justify = "center" }, {
+      ui.glyph({ name = "file", size = 96, color = "on_surface_variant" }),
+    })
+  end
+
+  -- Detail grid: listing fields plus parsed G-code metadata when the file
+  -- detail exposed them. The raw filename is deliberately not shown; the
+  -- display name in the toolbar is the human-readable one (issue #5).
+  local meta = type(entryItem.meta) == "table" and entryItem.meta or {}
+  local specs = {}
+  local function addSpec(icon, label, text)
+    if text ~= nil and text ~= "" then
+      specs[#specs + 1] = { icon, label, text }
+    end
+  end
+  if tonumber(entryItem.size) ~= nil then
+    addSpec("file", "File size", fmtSize(entryItem.size))
+  end
+  if tonumber(entryItem.m_timestamp) ~= nil then
+    addSpec("calendar", "Last modified", fmtModified(entryItem.m_timestamp))
+  end
+  addSpec("flask", "Material", meta.filament_type)
+  if tonumber(meta.temperature) ~= nil then
+    addSpec("thermometer", "Nozzle temp", string.format("%d °C", meta.temperature))
+  end
+  if tonumber(meta.bed_temperature) ~= nil then
+    addSpec("thermometer", "Bed temp", string.format("%d °C", meta.bed_temperature))
+  end
+  if tonumber(meta.layer_height) ~= nil then
+    addSpec("ruler-measure", "Layer height", string.format("%.2f mm", meta.layer_height))
+  end
+  if tonumber(meta.estimated_print_time) ~= nil then
+    addSpec("clock", "Print time", fmtTime(meta.estimated_print_time))
+  end
+  addSpec("gauge", "Infill", meta.fill_density)
+  if tonumber(meta.nozzle_diameter) ~= nil then
+    addSpec("circle-dot", "Nozzle ⌀", string.format("%.2f mm", meta.nozzle_diameter))
+  end
+  addSpec("printer", "Printer model", meta.printer_model)
+  local i = 1
+  while i <= #specs do
+    local trio = {}
+    for j = 0, 2 do
+      local spec = specs[i + j]
+      trio[#trio + 1] = spec ~= nil and propRow(spec[1], spec[2], spec[3])
+        or ui.spacer()
+    end
+    children[#children + 1] = ui.row({ gap = 10, align = "stretch" }, trio)
+    i = i + 3
+  end
+
+  -- Start-print flow, gated to an idle printer (issue #5): press, confirm
+  -- (bed-clean reminder), then POST; success lands back on the status tab.
+  local startArea
+  if not startable then
+    startArea = ui.label({
+      text = "Printer is busy — starting is available while it is idle.",
+      fontSize = 12, color = "on_surface_variant",
+    })
+  elseif not previewConfirm then
+    startArea = ui.column({ gap = 6 }, {
+      ui.button({ text = "Start print", variant = "primary", flexGrow = 1,
+                  onClick = function() onPreviewStart() end }),
+      ui.label({ text = "Make sure the print bed is clean and cooled down.",
+                 fontSize = 11, color = "on_surface_variant" }),
+    })
+  else
+    startArea = ui.column({ gap = 8, align = "stretch" }, {
+      ui.label({ text = "Start printing now?", fontWeight = "bold", fontSize = 13 }),
+      ui.label({ text = "The print bed should be clean and free of leftovers.",
+                 fontSize = 12, color = "on_surface_variant" }),
+      ui.row({ gap = 8 }, {
+        ui.button({ text = "Start now", variant = "primary", flexGrow = 1,
+                    enabled = not previewBusy,
+                    onClick = function() onPreviewConfirm() end }),
+        ui.button({ text = "Cancel", variant = "ghost", flexGrow = 1,
+                    enabled = not previewBusy,
+                    onClick = function() onPreviewCancel() end }),
+      }),
+    })
+  end
+  children[#children + 1] = ui.column({ gap = 8, padding = 10,
+      fill = "surface_variant/0.35", radius = 10, align = "stretch" },
+    { startArea })
+
+  return children
+end
+
 local function buildStorageBody()
   if printerOffline() then
     -- Offline: don't parade the failing fetch; relay it plainly, not as an
@@ -455,6 +708,22 @@ local function buildStorageBody()
     })
   end
 
+  local thumbBase = targetBase()
+  local thumbAuth = {
+    user = noctalia.getConfig("username") or "",
+    pass = noctalia.getConfig("password") or "",
+  }
+  local startable = not printerOffline()
+    and (S.printer_state == "IDLE" or S.printer_state == "READY")
+
+  if previewEntry ~= nil then
+    for _, node in ipairs(buildPreviewBody(previewEntry, thumbBase, thumbAuth,
+                                           startable)) do
+      children[#children + 1] = node
+    end
+    return ui.column({ gap = 8, align = "stretch" }, children)
+  end
+
   if dirLoading ~= "" then
     children[#children + 1] = ui.label({ text = dirLoading, color = "on_surface_variant" })
   elseif dirError ~= "" then
@@ -462,13 +731,7 @@ local function buildStorageBody()
   elseif #dirEntries == 0 then
     children[#children + 1] = ui.label({ text = "No files", color = "on_surface_variant" })
   else
-    -- Thumbnail plumbing rides one render: origin prefix + digest creds for
-    -- the fetcher, stable keys so glyph→image swaps patch in place.
-    local thumbBase = targetBase()
-    local thumbAuth = {
-      user = noctalia.getConfig("username") or "",
-      pass = noctalia.getConfig("password") or "",
-    }
+    -- Stable row keys keep glyph→image swaps patching in place.
     for _, entryItem in ipairs(dirEntries) do
       local isFolder = entryItem.type == "FOLDER"
       local entryName = tostring(entryItem.name)
@@ -530,6 +793,8 @@ local function buildStorageBody()
             }
             lastLoadedKey = nil
             ensureDirLoaded()
+          else
+            openPreview(entryItem)
           end
         end,
       }, {
