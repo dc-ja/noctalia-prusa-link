@@ -71,34 +71,6 @@ All `noctalia.state` keys use snake_case and are published by the service
 | `selected_storage` | string | Selected storage path |
 | `storage_files` | table[] | Current directory listing |
 
-## Deferred — waiting on the Noctalia API
-
-Noctalia v5 is beta; these papercuts are parked until the plugin API grows the
-missing primitives. Revisit whenever a new `plugin_api` level ships:
-
-- **Scroll viewport inset** — the panel's scrolling region renders a touch
-  narrower than the header and tab row even though the scroller's padding is
-  pinned to 0. Suspected scrollbar gutter or default viewport inset inside the
-  host's `ui.scroll`; no plugin-side prop reaches it. Re-test on newer shells,
-  otherwise file upstream.
-- **Native tab control** — panel Status/Storage use segmented full-width
-  buttons (`selected` + `flexGrow = 1`). Swap for `ui.tabs` (or equivalent)
-  the moment the declarative vocabulary ships one.
-- **Bar-widget context menu** — dropped in the migration because `barWidget.*`
-  has no menu API (`panel.openContextMenu` is panel-only). If widget-level
-  menus ever land, restore quick pause/resume/stop from the pill.
-- **Digest without the curl bridge** — auth currently falls back to
-  `curl --digest` via argv-table `runAsync` (hence `plugin_api = 24`) because
-  `HttpResponse` hides response headers. If headers are exposed upstream,
-  answer the challenge natively in `lib/http.luau` and drop the curl
-  dependency.
-- **Graph axes/gridlines** — no way today to draw reference lines or scale
-  ticks over a `ui.graph`: the two-series cap consumes actual + target, and
-  the declarative vocabulary has no overlay/z-order placement. A labelled
-  side rail (see `panel.luau` `graphBlock`) fakes the labels; real gridlines
-  need an upstream `gridLines`/axis prop on `ui.graph` or a lifted series
-  cap.
-
 ## PrusaLink API
 
 - **Base**: `http://host:port`
