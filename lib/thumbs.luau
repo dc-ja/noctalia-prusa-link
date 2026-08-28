@@ -141,7 +141,6 @@ local function sweepIfHeavy()
     noctalia.log("[prusa-link] thumb sweep failed to list dir: " .. tostring(err))
     return
   end
-  local now = os.time()
   local files = {}
   local total = 0
   for _, name in ipairs(names) do

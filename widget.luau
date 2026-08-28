@@ -10,7 +10,10 @@
 local PANEL_ID = "dc-ja/prusa-link:panel"
 
 -- Local mirror of the service's publications; watchers keep it fresh.
-local S = {}
+-- Mirrored service state, keyed exactly like noctalia.state (see WATCHED
+-- below). The string indexer keeps the dynamic watch-writes legal for the
+-- type solver while every read stays a plain table lookup.
+local S: { [string]: any } = {}
 
 local WATCHED = {
   "connected", "error", "printer_state", "progress", "time_remaining",
@@ -169,3 +172,8 @@ for _, key in ipairs(WATCHED) do
   S[key] = noctalia.state.get(key)
 end
 render()
+
+-- The shell discovers the bar widget's click callback by name in this
+-- environment; binding it explicitly keeps that contract visible to static
+-- analysis instead of relying on invisible string lookups.
+_G.onClick = onClick

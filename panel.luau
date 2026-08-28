@@ -15,7 +15,10 @@ local thumbs = require("./lib/thumbs.luau")
 
 -- ------------------------------------------------------------ live state
 
-local S = {}
+-- Mirrored service state, keyed exactly like noctalia.state (see WATCHED
+-- below). The string indexer keeps the dynamic watch-writes legal for the
+-- type solver while every read stays a plain table lookup.
+local S: { [string]: any } = {}
 local isOpen = false
 local currentTab = 0 -- 0 = status, 1 = storage
 local actionError = ""
@@ -23,8 +26,10 @@ local actionError = ""
 -- Storage-browser state (ephemeral, panel-owned; the service only publishes
 -- the storage list and a default selection — picker choices stay local).
 local chosenStorage = nil
-local relPath = {}     -- folder names below the storage root
-local pathHistory = {} -- stack of previous relPath copies for Back
+type PathSegment = { name: string, display_name: string }
+
+local relPath: { PathSegment } = {}         -- folder names below the storage root
+local pathHistory: { { PathSegment } } = {} -- stack of previous relPath copies
 local dirEntries = {}  -- sorted children of the current directory
 local dirLoading = ""
 local dirError = ""
@@ -206,6 +211,13 @@ local function scheduleRender()
   end
 end
 
+function onClose()
+  isOpen = false
+  renderArmed = false -- drop any pending deferred render with the surface
+  panel.setNeedsFrameTick(false)
+  panel.close()
+end
+
 -- ------------------------------------------------------- storage browser
 
 local function storageSlug(path)
@@ -228,7 +240,7 @@ local function resetRel()
 end
 
 local function pushHistory()
-  local copy = {}
+  local copy: { PathSegment } = {}
   for i, v in ipairs(relPath) do copy[i] = v end
   pathHistory[#pathHistory + 1] = copy
 end
@@ -418,7 +430,7 @@ end
 
 function onDirBack()
   if #pathHistory > 0 then
-    relPath = table.remove(pathHistory)
+    relPath = table.remove(pathHistory) or {}
     lastLoadedKey = nil
     closePreview()
     ensureDirLoaded()
@@ -529,7 +541,7 @@ local function buildPreviewBody(entryItem, thumbBase, thumbAuth, startable)
   local children = {}
 
   children[#children + 1] = ui.row({ gap = 8, align = "center" }, {
-    iconButton("chevron-left", "Back to files", "onPreviewClose"),
+    iconButton("chevron-left", "Back to files", onPreviewClose),
     ui.label({ text = tostring(entryItem.display_name or entryItem.name),
                fontWeight = "bold", fontSize = 14, flexGrow = 1 }),
   })
@@ -701,8 +713,8 @@ local function buildStorageBody()
 
   if #relPath > 0 then
     children[#children + 1] = ui.row({ gap = 6, align = "center" }, {
-      iconButton("chevron-left", "Go back", "onDirBack"),
-      iconButton("chevron-up", "Go to storage root", "onDirRoot"),
+      iconButton("chevron-left", "Go back", onDirBack),
+      iconButton("chevron-up", "Go to storage root", onDirRoot),
       ui.label({ text = displayRelPath(), fontSize = 11,
                  color = "on_surface_variant", flexGrow = 1 }),
     })
@@ -824,18 +836,18 @@ local function buildTree()
     ui.label({ text = tostring(printerName), color = "on_surface_variant", fontSize = 13, maxWidth = 180 }),
   }
   if state == "PRINTING" and jobId >= 0 then
-    headerItems[#headerItems + 1] = iconButton("player-pause", "Pause print", "onPause")
+    headerItems[#headerItems + 1] = iconButton("player-pause", "Pause print", onPause)
   end
   if state == "PAUSED" and jobId >= 0 then
-    headerItems[#headerItems + 1] = iconButton("player-play", "Resume print", "onResume")
+    headerItems[#headerItems + 1] = iconButton("player-play", "Resume print", onResume)
   end
   if jobId >= 0 and (state == "PRINTING" or state == "PAUSED") then
-    headerItems[#headerItems + 1] = iconButton("stop", "Stop print", "onStop", "destructive")
+    headerItems[#headerItems + 1] = iconButton("stop", "Stop print", onStop, "destructive")
   end
   headerItems[#headerItems + 1] = ui.spacer()
-  headerItems[#headerItems + 1] = iconButton("refresh", "Redraw", "onRefresh")
-  headerItems[#headerItems + 1] = iconButton("external-link", "Open web interface", "onOpenWebUI")
-  headerItems[#headerItems + 1] = iconButton("close", "Close panel", "onClose")
+  headerItems[#headerItems + 1] = iconButton("refresh", "Redraw", onRefresh)
+  headerItems[#headerItems + 1] = iconButton("external-link", "Open web interface", onOpenWebUI)
+  headerItems[#headerItems + 1] = iconButton("close", "Close panel", onClose)
 
   local headerChildren = { ui.row({ gap = 8, align = "center" }, headerItems) }
   if not connected then
@@ -981,15 +993,15 @@ function onOpen(_context)
   renderPanel()
 end
 
-function onClose()
-  isOpen = false
-  renderArmed = false -- drop any pending deferred render with the surface
-  panel.setNeedsFrameTick(false)
-  panel.close()
-end
-
 -- Seed the mirror from whatever the service already published.
 for _, key in ipairs(WATCHED) do
   S[key] = noctalia.state.get(key)
 end
 syncStorage()
+
+-- The shell discovers panel lifecycle callbacks by name in this environment
+-- (see [[panel]] in plugin.toml). Binding them here keeps that contract
+-- visible to static analysis instead of relying on invisible string lookups.
+_G.onOpen = onOpen
+_G.onClose = onClose
+_G.onFrameTick = onFrameTick
