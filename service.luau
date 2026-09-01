@@ -332,11 +332,3 @@ end
 readSettings()
 publishOffline("")
 pollStatus()
-
--- The shell discovers the service's lifecycle callbacks by name in this
--- environment (update cadence, config changes, exit, IPC); binding them
--- explicitly keeps that contract visible to static analysis.
-_G.update = update
-_G.onConfigChanged = onConfigChanged
-_G.onExit = onExit
-_G.onIpc = onIpc

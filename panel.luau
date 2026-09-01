@@ -1100,10 +1100,3 @@ for _, key in ipairs(WATCHED) do
   S[key] = noctalia.state.get(key)
 end
 syncStorage()
-
--- The shell discovers panel lifecycle callbacks by name in this environment
--- (see [[panel]] in plugin.toml). Binding them here keeps that contract
--- visible to static analysis instead of relying on invisible string lookups.
-_G.onOpen = onOpen
-_G.onClose = onClose
-_G.onFrameTick = onFrameTick

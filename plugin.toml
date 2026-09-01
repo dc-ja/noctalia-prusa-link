@@ -66,6 +66,90 @@ min             = 1
 max             = 120
 advanced        = true
 
+# ── Bar-widget label visibility ─────────────────────────────────────────
+# Per-state toggles for the bar widget's text label (all advanced). The label
+# stays visible in every state except idle and offline by default.
+
+[[setting]]
+key             = "label_visible_offline"
+type            = "bool"
+label_key       = "settings.label_visible_offline.label"
+description_key = "settings.label_visible_offline.description"
+default         = false
+advanced        = true
+
+[[setting]]
+key             = "label_visible_idle"
+type            = "bool"
+label_key       = "settings.label_visible_idle.label"
+description_key = "settings.label_visible_idle.description"
+default         = false
+advanced        = true
+
+[[setting]]
+key             = "label_visible_ready"
+type            = "bool"
+label_key       = "settings.label_visible_ready.label"
+description_key = "settings.label_visible_ready.description"
+default         = true
+advanced        = true
+
+[[setting]]
+key             = "label_visible_busy"
+type            = "bool"
+label_key       = "settings.label_visible_busy.label"
+description_key = "settings.label_visible_busy.description"
+default         = true
+advanced        = true
+
+[[setting]]
+key             = "label_visible_printing"
+type            = "bool"
+label_key       = "settings.label_visible_printing.label"
+description_key = "settings.label_visible_printing.description"
+default         = true
+advanced        = true
+
+[[setting]]
+key             = "label_visible_paused"
+type            = "bool"
+label_key       = "settings.label_visible_paused.label"
+description_key = "settings.label_visible_paused.description"
+default         = true
+advanced        = true
+
+[[setting]]
+key             = "label_visible_finished"
+type            = "bool"
+label_key       = "settings.label_visible_finished.label"
+description_key = "settings.label_visible_finished.description"
+default         = true
+advanced        = true
+
+[[setting]]
+key             = "label_visible_stopped"
+type            = "bool"
+label_key       = "settings.label_visible_stopped.label"
+description_key = "settings.label_visible_stopped.description"
+default         = true
+advanced        = true
+
+[[setting]]
+key             = "label_visible_error"
+type            = "bool"
+label_key       = "settings.label_visible_error.label"
+description_key = "settings.label_visible_error.description"
+default         = true
+advanced        = true
+
+[[setting]]
+key             = "label_visible_attention"
+type            = "bool"
+label_key       = "settings.label_visible_attention.label"
+description_key = "settings.label_visible_attention.description"
+default         = true
+advanced        = true
+
 # ── Entries ────────────────────────────────────────────────────────────────────
 # Addressed everywhere as "dc-ja/prusa-link:<id>" (noctalia.togglePanel,
 # noctalia msg plugin dc-ja/prusa-link:<id> ..., panel-toggle).

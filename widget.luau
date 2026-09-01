@@ -61,6 +61,14 @@ local STATE_LABELS = {
   ATTENTION = "attention",
 }
 
+-- Per-state label visibility (advanced settings). Defaults to visible except
+-- for idle and offline; returns false only when the user has explicitly
+-- hidden the label for the current state.
+local function labelVisible(state)
+  local key = "label_visible_" .. state:lower()
+  return noctalia.getConfig(key) ~= false
+end
+
 -- ----------------------------------------------------------------- render
 
 local function render()
@@ -106,7 +114,10 @@ local function render()
   else
     text = state
   end
-  barWidget.setText(text)
+  -- Hide the label when its per-state visibility setting is off (offline uses
+  -- the dedicated offline key; every other state maps to its own key).
+  local visible = offline and labelVisible("offline") or labelVisible(state)
+  barWidget.setText(visible and text or "")
 
   -- Tooltip as native { key, value } rows (BarWidget.qml:70-108 parity)
   local rows
@@ -172,8 +183,3 @@ for _, key in ipairs(WATCHED) do
   S[key] = noctalia.state.get(key)
 end
 render()
-
--- The shell discovers the bar widget's click callback by name in this
--- environment; binding it explicitly keeps that contract visible to static
--- analysis instead of relying on invisible string lookups.
-_G.onClick = onClick
