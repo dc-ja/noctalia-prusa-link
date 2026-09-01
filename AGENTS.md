@@ -62,7 +62,7 @@ All `noctalia.state` keys use snake_case and are published by the service
 | `time_remaining` | int | Seconds remaining |
 | `time_printing` | int | Seconds of print time elapsed |
 | `info` | table | Printer info (name, hostname, nozzle diameter, etc.) |
-| `job` | table | `/api/v1/job` payload: `state`, `file.name`, `file.display_name`, `file.refs.icon`, `file.refs.thumbnail`, `file.m_timestamp`, `file.size` |
+| `job` | table | `/api/v1/job` payload: `state`, `file.name`, `file.display_name`, `file.path`, `file.refs.icon`, `file.refs.thumbnail`, `file.m_timestamp`, `file.size` |
 | `nozzle_temp_history` | number[] | Raw nozzle temp history (one sample per poll, capped ~240) |
 | `nozzle_target_history` | number[] | Raw nozzle target history (same sampling) |
 | `bed_temp_history` | number[] | Raw bed temp history (same sampling) |
@@ -103,9 +103,3 @@ All `noctalia.state` keys use snake_case and are published by the service
 - **Panel toggle**: `noctalia.togglePanel("author/plugin:panel")`
 - **Filesystem**: `noctalia.readFile()`, `noctalia.writeFile()`, `noctalia.pluginDataDir()`, etc.
 - **Colors**: palette tokens (`primary`, `on_surface`, `error`, `on_surface_variant`, etc.) or hex (`#rrggbb`)
-
-## What's Next (Phase 2)
-
-1. **Printer control (done)**: pause/resume/stop via `PUT/DELETE /api/v1/job/{id}/*` — implemented in the panel header.
-2. **Print file preview (done)**: clicking a print file in the storage browser opens a preview — large rendition (auto-fallback to the small one), file size/modified and parsed G-code metadata from the file detail endpoint. Start print is gated to idle/ready printers behind a bed-clean confirmation strip and `POST /api/v1/files/{storage}/{path}`; success closes the preview and shows the status tab, `409` surfaces "Printer is busy".
-3. **Notifications**: optional desktop notification when a print finishes or errors.

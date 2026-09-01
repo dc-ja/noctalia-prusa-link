@@ -37,6 +37,7 @@ local lastLoadedKey = nil
 local previewEntry = nil     -- listing item currently previewed (nil = list)
 local previewConfirm = false -- "start now?" confirmation strip is open
 local previewBusy = false    -- start-print POST in flight
+local lastJobSignature = nil -- logs once per distinct active job file
 
 local WATCHED = {
   "connected", "error", "printer_state", "progress",
@@ -413,7 +414,7 @@ function onPreviewConfirm()
     previewBusy = false
     if res.ok and res.status >= 200 and res.status < 300 then
       closePreview()
-      currentTab = 0 -- per issue #5: show the status tab after starting
+      currentTab = 0 -- show the status tab after starting
       actionError = ""
     elseif res.status == 409 then
       actionError = "Printer is busy (409)"
@@ -591,7 +592,8 @@ local function buildPreviewBody(entryItem, thumbBase, thumbAuth, startable)
 
   -- Detail grid: listing fields plus parsed G-code metadata when the file
   -- detail exposed them. The raw filename is deliberately not shown; the
-  -- display name in the toolbar is the human-readable one (issue #5).
+  -- display name in the toolbar is the human-readable one; the raw filename
+  -- is deliberately not shown.
   local meta = type(entryItem.meta) == "table" and entryItem.meta or {}
   local specs = {}
   local function addSpec(icon, label, text)
@@ -635,7 +637,7 @@ local function buildPreviewBody(entryItem, thumbBase, thumbAuth, startable)
     i = i + 3
   end
 
-  -- Start-print flow, gated to an idle printer (issue #5): press, confirm
+  -- Start-print flow, gated to an idle printer: press, confirm
   -- (bed-clean reminder), then POST; success lands back on the status tab.
   local startArea
   if not startable then
@@ -744,6 +746,98 @@ local function buildStorageBody()
     children[#children + 1] = ui.label({ text = "No files", color = "on_surface_variant" })
   else
     -- Stable row keys keep glyph→image swaps patching in place.
+    -- Mark the file the printer is working on plus every folder on the way
+    -- to it. job.file.path is the containing directory of the active file,
+    -- job.file.name/display_name are its short/long names, and a size+mtime
+    -- identity covers name drift between the job and the listing endpoints.
+    local job = type(S.job) == "table" and S.job or {}
+    local jobFile = type(job.file) == "table" and job.file or {}
+    local jobActive = S.printer_state == "PRINTING"
+      or S.printer_state == "PAUSED"
+    local jobDir = {} -- lowercased directory segments; empty = unknown
+    local jobNames = {}
+    local jobSize, jobMtime = nil, nil
+    if jobActive then
+      if type(jobFile.path) == "string" and jobFile.path ~= "" then
+        for segment in jobFile.path:gmatch("[^/]+") do
+          jobDir[#jobDir + 1] = segment:lower()
+        end
+      end
+      local function addJobName(value)
+        if type(value) == "string" and value ~= "" then
+          jobNames[value:lower()] = true
+        end
+      end
+      addJobName(jobFile.name)
+      addJobName(jobFile.display_name)
+      jobSize = tonumber(jobFile.size)
+      jobMtime = tonumber(jobFile.m_timestamp)
+    end
+    local dirLower = { storageSlug(chosenStorage):lower() }
+    for _, segment in ipairs(relPath) do
+      dirLower[#dirLower + 1] = segment.name:lower()
+    end
+    local function isPrintingFile(entryItem)
+      if not jobActive then
+        return false
+      end
+      if #jobDir > 0 then
+        if #jobDir ~= #dirLower then
+          return false -- the file lives in a different directory
+        end
+        for k = 1, #dirLower do
+          if jobDir[k] ~= dirLower[k] then
+            return false
+          end
+        end
+      end -- directory unknown: names and identity match anywhere
+      if jobNames[tostring(entryItem.name):lower()] == true
+        or jobNames[tostring(entryItem.display_name or ""):lower()] == true then
+        return true
+      end
+      local size = tonumber(entryItem.size)
+      local mtime = tonumber(entryItem.m_timestamp)
+      return jobSize ~= nil and size == jobSize
+        and jobMtime ~= nil and mtime == jobMtime
+    end
+    local function containsPrintingFile(folderName)
+      if not jobActive or #jobDir == 0 then
+        return false -- directory unknown: the folder cannot be located
+      end
+      if #jobDir < #dirLower + 1 then
+        return false -- the file is not inside this folder
+      end
+      for k = 1, #dirLower do
+        if jobDir[k] ~= dirLower[k] then
+          return false
+        end
+      end
+      return jobDir[#dirLower + 1] == folderName:lower()
+    end
+    if jobActive then
+      local signature = tostring(jobFile.name) .. "|" .. tostring(jobFile.display_name)
+        .. "|" .. tostring(jobFile.path)
+      if signature ~= lastJobSignature then
+        lastJobSignature = signature
+        noctalia.log(string.format(
+          "[prusa-link] active job file: name=%s display=%s path=%s size=%s mtime=%s",
+          tostring(jobFile.name), tostring(jobFile.display_name),
+          tostring(jobFile.path), tostring(jobFile.size), tostring(jobFile.m_timestamp)))
+      end
+    elseif lastJobSignature ~= nil then
+      lastJobSignature = nil
+    end
+    local function printingChip(text)
+      return ui.label({ text = text, fontSize = 11, fontWeight = "bold",
+                        color = "primary" })
+    end
+    local function printChipText()
+      if S.printer_state == "PAUSED" then
+        return "Printing (paused)"
+      end
+      return string.format("Printing · %d%%",
+        math.floor((tonumber(S.progress) or 0) + 0.5))
+    end
     for _, entryItem in ipairs(dirEntries) do
       local isFolder = entryItem.type == "FOLDER"
       local entryName = tostring(entryItem.name)
@@ -793,6 +887,17 @@ local function buildStorageBody()
           })
         end
       end
+      local rowKids = {
+        iconCell(iconNode),
+        ui.label({ text = tostring(entryItem.display_name or entryName), flexGrow = 1 }),
+      }
+      if isFolder then
+        if containsPrintingFile(entryName) then
+          rowKids[#rowKids + 1] = printingChip("Printing inside")
+        end
+      elseif isPrintingFile(entryItem) then
+        rowKids[#rowKids + 1] = printingChip(printChipText())
+      end
       children[#children + 1] = ui.row({
         key = "store-" .. entryName,
         gap = 8, align = "center",
@@ -809,10 +914,7 @@ local function buildStorageBody()
             openPreview(entryItem)
           end
         end,
-      }, {
-        iconCell(iconNode),
-        ui.label({ text = tostring(entryItem.display_name or entryName), flexGrow = 1 }),
-      })
+      }, rowKids)
     end
   end
 
